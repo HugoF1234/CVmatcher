@@ -37,17 +37,16 @@ def init_services():
     except Exception as e:
         logger.error(f"❌ Erreur MongoDB: {e}")
     
-    # Init FAISS
-    if os.path.exists(FAISS_INDEX_FILE) and os.path.exists(ID_MAPPING_FILE):
-        try:
-            index = faiss.read_index(FAISS_INDEX_FILE)
-            with open(ID_MAPPING_FILE, "rb") as f:
-                id_mapping = pickle.load(f)
-            logger.info("✅ Index FAISS chargé")
-        except Exception as e:
-            logger.error(f"⚠️ Erreur chargement FAISS: {e}")
-    else:
-        logger.warning("⚠️ Aucun index FAISS trouvé")
+    # Init FAISS depuis MongoDB
+    try:
+        from app.utils.vectorize import load_faiss_from_mongodb
+        index, id_mapping = load_faiss_from_mongodb()
+        if index is not None:
+            logger.info("✅ Index FAISS chargé depuis MongoDB")
+        else:
+            logger.warning("⚠️ Aucun index FAISS trouvé en base")
+    except Exception as e:
+        logger.error(f"⚠️ Erreur chargement FAISS: {e}")
     
     # Init Gemini
     try:
@@ -175,9 +174,18 @@ def home():
 
 @app.route("/update-cvs", methods=["POST"])
 def update_cvs():
+    global index, id_mapping
+    
     try:
         from app.watcher import run_watch
-        run_watch()
+        success = run_watch()
+        
+        if success:
+            # Recharger l'index FAISS depuis MongoDB
+            from app.utils.vectorize import load_faiss_from_mongodb
+            index, id_mapping = load_faiss_from_mongodb()
+            logger.info("🔄 Index FAISS rechargé après mise à jour")
+            
         return redirect(url_for('home'))
     except Exception as e:
         logger.error(f"❌ Erreur mise à jour CVs: {e}")
