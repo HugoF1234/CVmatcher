@@ -1,4 +1,4 @@
-from flask import render_template, request, session, redirect, url_for
+from flask import render_template, request, session, redirect, url_for, jsonify
 import faiss
 import numpy as np
 import os
@@ -8,6 +8,7 @@ from bson import ObjectId
 import google.generativeai as genai
 import json
 import logging
+import threading
 from config import *
 from app import app
 
@@ -175,24 +176,76 @@ def home():
 
     return render_template("index.html", results=results)
 
-@app.route("/update-cvs", methods=["POST"])
-def update_cvs():
-    global index, id_mapping
-    
+def run_update_background():
+    """Lance la mise à jour en arrière-plan"""
     try:
         from app.watcher import run_watch
+        logger.info("🔄 Début de la mise à jour des CVs en arrière-plan")
         success = run_watch()
         
         if success:
+            global index, id_mapping
             # Recharger l'index FAISS depuis MongoDB
             from app.utils.vectorize import load_faiss_from_mongodb
             index, id_mapping = load_faiss_from_mongodb()
             logger.info("🔄 Index FAISS rechargé après mise à jour")
-            
-        return redirect(url_for('home'))
+        
+        logger.info("✅ Mise à jour terminée")
     except Exception as e:
-        logger.error(f"❌ Erreur mise à jour CVs: {e}")
-        return redirect(url_for('home'))
+        logger.error(f"❌ Erreur mise à jour CVs en arrière-plan: {e}")
+
+@app.route("/update-cvs", methods=["POST"])
+def update_cvs():
+    """Lance la mise à jour des CVs de manière asynchrone pour éviter les timeouts"""
+    try:
+        # Vérifier que MongoDB est connecté
+        if collection is None:
+            return jsonify({
+                "status": "error", 
+                "message": "Base de données non connectée"
+            }), 503
+        
+        # Lancer le processus en arrière-plan
+        thread = threading.Thread(target=run_update_background)
+        thread.daemon = True
+        thread.start()
+        
+        logger.info("🚀 Mise à jour des CVs lancée en arrière-plan")
+        
+        # Retourner immédiatement une réponse
+        return jsonify({
+            "status": "started",
+            "message": "Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes."
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lancement mise à jour CVs: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Erreur: {str(e)}"
+        }), 500
+
+@app.route("/update-status")
+def update_status():
+    """Endpoint pour vérifier le statut de la mise à jour"""
+    try:
+        if collection is None:
+            return jsonify({"mongodb": False, "faiss": False})
+        
+        # Compter les CVs dans la base
+        cv_count = collection.count_documents({})
+        
+        # Vérifier FAISS
+        faiss_available = index is not None and len(id_mapping) > 0
+        
+        return jsonify({
+            "mongodb": True,
+            "cv_count": cv_count,
+            "faiss": faiss_available,
+            "faiss_entries": len(id_mapping) if faiss_available else 0
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/toggle_like/<cv_id>")
 def toggle_like(cv_id):
@@ -242,9 +295,15 @@ def show_cv_detail(cv_id):
 @app.route("/health")
 def health_check():
     """Endpoint de santé pour vérifier le statut des services"""
-    status = {
-        "mongodb": collection is not None,
-        "faiss": index is not None,
-        "gemini": gemini_model is not None
-    }
-    return status
+    try:
+        cv_count = collection.count_documents({}) if collection else 0
+        status = {
+            "mongodb": collection is not None,
+            "cv_count": cv_count,
+            "faiss": index is not None,
+            "faiss_entries": len(id_mapping) if index else 0,
+            "gemini": gemini_model is not None
+        }
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
