@@ -4,21 +4,8 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
-    plan: free
     envVars:
-      - key: GEMINI_API_KEY
+      - key: AIzaSyB2w2GCNE6EqvAtcA2Dj9rsvkD2YzFFMfM
         sync: false
-      - key: MONGO_URI
-        sync: false
-
-  - type: cron
-    name: cv-watcher
-    env: python
-    schedule: "@hourly"  # toutes les heures
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app/watcher.py
-    envVars:
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: MONGO_URI
+      - key: mongodb://localhost:27017
         sync: false
