@@ -14,7 +14,7 @@ SECRET_KEY = "0180529a5b9c1ec478296df826a91c31"
 os.makedirs("faiss_index", exist_ok=True)
 
 def get_mongo_client():
-    """Retourne un client MongoDB avec gestion d'erreurs SSL"""
+    """Retourne un client MongoDB avec gestion d'erreurs SSL spécifique Render"""
     from pymongo import MongoClient
     import logging
     logger = logging.getLogger(__name__)
@@ -23,24 +23,41 @@ def get_mongo_client():
         logger.error("❌ MONGO_URI non défini")
         return None
     
-    # Essayer plusieurs configurations
+    # Configurations spécifiques pour Render + Atlas
     configs = [
-        {},  # Configuration par défaut
+        # Config 1: URI avec tlsAllowInvalidCertificates
         {"tlsAllowInvalidCertificates": True},
-        {"ssl": False},
-        {"directConnection": True}
+        
+        # Config 2: Désactiver totalement TLS/SSL  
+        {"tls": False, "ssl": False},
+        
+        # Config 3: Configuration par défaut
+        {},
+        
+        # Config 4: TLS avec timeouts courts
+        {"tlsAllowInvalidCertificates": True, "serverSelectionTimeoutMS": 3000},
     ]
     
-    for i, config in enumerate(configs):
+    for i, config in enumerate(configs, 1):
         try:
-            client = MongoClient(MONGO_URI, **config)
-            # Test de connexion
+            # Nettoyer l'URI des paramètres SSL conflictuels pour certaines configs
+            uri = MONGO_URI
+            if i == 2:  # Config sans SSL
+                # Supprimer les paramètres SSL de l'URI
+                uri = MONGO_URI.replace("&ssl=true", "").replace("ssl=true&", "").replace("ssl=true", "")
+                uri = uri.replace("&retryWrites=true", "").replace("retryWrites=true&", "").replace("retryWrites=true", "")
+            
+            logger.info(f"🔄 Tentative connexion MongoDB config {i}")
+            client = MongoClient(uri, **config)
+            
+            # Test rapide de connexion
             client.admin.command('ping')
-            logger.info(f"✅ MongoDB connecté (config {i+1})")
+            logger.info(f"✅ MongoDB connecté avec config {i}")
             return client
+            
         except Exception as e:
-            logger.warning(f"⚠️ Config {i+1} échouée: {str(e)[:100]}...")
+            logger.warning(f"⚠️ Config {i} échouée: {str(e)[:100]}...")
             continue
     
-    logger.error("❌ Impossible de se connecter à MongoDB")
+    logger.error("❌ Toutes les configurations MongoDB ont échoué")
     return None
