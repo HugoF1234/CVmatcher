@@ -12,7 +12,7 @@ app = Flask(__name__)
 app.secret_key = "0180529a5b9c1ec478296df826a91c31"
 
 # === CONFIGURATION ===
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "CVExtraction"
 COLLECTION_NAME = "CVExtractionCollection"
 FAISS_INDEX_FILE = "faiss_index/cv_index.faiss"
