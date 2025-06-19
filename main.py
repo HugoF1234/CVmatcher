@@ -18,4 +18,6 @@ if __name__ == "__main__":
     
     startup()
     logger.info(f"🚀 Démarrage sur le port {port}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    
+    # Pour Render, s'assurer que l'app écoute sur toutes les interfaces
+    app.run(host="0.0.0.0", port=port, debug=debug, threaded=True)
