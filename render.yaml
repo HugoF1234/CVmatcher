@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: cv-matcher
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
+
+  - type: cron
+    name: cv-watcher
+    env: python
+    schedule: "@hourly"  # toutes les heures
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/watcher.py
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
