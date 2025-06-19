@@ -13,7 +13,7 @@ from googleapiclient.discovery import build
 
 # === CONFIGURATION ===
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "CVExtraction"
 COLLECTION_NAME = "CVExtractionCollection"
 GEMINI_API_KEY = "AIzaSyBNE6Ak52CMC6aXkMyOBgjfFsm-NHfT6jA"
