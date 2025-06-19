@@ -28,26 +28,17 @@ def init_services():
     
     # Init MongoDB
     try:
-        if MONGO_URI:
-            from config import MONGO_CLIENT_OPTIONS
-            client = MongoClient(MONGO_URI, **MONGO_CLIENT_OPTIONS)
-            # Test de connexion
-            client.admin.command('ping')
+        from config import get_mongo_client
+        client = get_mongo_client()
+        if client:
             collection = client[DB_NAME][COLLECTION_NAME]
-            logger.info("✅ MongoDB connecté avec SSL")
         else:
-            logger.error("❌ MONGO_URI non défini")
+            collection = None
+            logger.error("❌ Impossible de se connecter à MongoDB")
     except Exception as e:
         logger.error(f"❌ Erreur MongoDB: {e}")
-        # Fallback sans options SSL spéciales
-        try:
-            if MONGO_URI:
-                client = MongoClient(MONGO_URI)
-                client.admin.command('ping')
-                collection = client[DB_NAME][COLLECTION_NAME]
-                logger.info("✅ MongoDB connecté (fallback)")
-        except Exception as e2:
-            logger.error(f"❌ Erreur MongoDB fallback: {e2}")
+        client = None
+        collection = None
     
     # Init FAISS depuis MongoDB
     try:
