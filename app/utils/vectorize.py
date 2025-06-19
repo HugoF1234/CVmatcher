@@ -4,53 +4,46 @@ import numpy as np
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
 from bson import ObjectId
+from app.config import MONGO_URI, DB_NAME, COLLECTION_NAME, FAISS_INDEX_FILE, ID_MAPPING_FILE
 
-# === CONFIGURATION ===
-MONGO_URI = "mongodb://localhost:27017"
-DB_NAME = "CVExtraction"
-COLLECTION_NAME = "CVExtractionCollection"
-FAISS_INDEX_FILE = "cv_index.faiss"
-ID_MAPPING_FILE = "id_mapping.pkl"
-
-# === CHARGEMENT DU MODELE D'EMBEDDING ===
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# === CONNEXION À MONGODB ===
-client = MongoClient(MONGO_URI)
-collection = client[DB_NAME][COLLECTION_NAME]
-cvs = list(collection.find({}))
+def update_faiss_index():
+    client = MongoClient(MONGO_URI)
+    collection = client[DB_NAME][COLLECTION_NAME]
+    cvs = list(collection.find({}))
 
-# === PRÉPARATION DES EMBEDDINGS ===
-vectors = []
-id_mapping = []
+    vectors = []
+    id_mapping = []
 
-for cv in cvs:
-    comp = " ".join(cv.get("competences", []))
-    bio = cv.get("biographie", "")
-    exp = " ".join([e.get("description", "") for e in cv.get("experiences", [])])
+    for cv in cvs:
+        comp = " ".join(cv.get("competences", []))
+        bio = cv.get("biographie", "")
+        exp = " ".join([e.get("description", "") for e in cv.get("experiences", [])])
 
-    # Embedding individuel
-    emb_comp = model.encode(comp) if comp else np.zeros(384)
-    emb_bio = model.encode(bio) if bio else np.zeros(384)
-    emb_exp = model.encode(exp) if exp else np.zeros(384)
+        emb_comp = model.encode(comp) if comp else np.zeros(384)
+        emb_bio = model.encode(bio) if bio else np.zeros(384)
+        emb_exp = model.encode(exp) if exp else np.zeros(384)
 
-    # PONDÉRATION NUMÉRIQUE
-    weighted_vector = (
-        0.2 * emb_comp +
-        0.4 * emb_bio +
-        0.6 * emb_exp
-    )
+        weighted_vector = (
+            0.2 * emb_comp +
+            0.4 * emb_bio +
+            0.6 * emb_exp
+        )
 
-    vectors.append(weighted_vector)
+        vectors.append(weighted_vector)
+        id_mapping.append(str(cv["_id"]))
 
-# === CONSTRUCTION DE L'INDEX FAISS ===
-dimension = len(vectors[0])
-index = faiss.IndexFlatL2(dimension)
-index.add(np.array(vectors).astype("float32"))
+    if not vectors:
+        print("⚠️ Aucun vecteur à indexer.")
+        return
 
-# === SAUVEGARDE ===
-faiss.write_index(index, FAISS_INDEX_FILE)
-with open(ID_MAPPING_FILE, "wb") as f:
-    pickle.dump(id_mapping, f)
+    dimension = len(vectors[0])
+    index = faiss.IndexFlatL2(dimension)
+    index.add(np.array(vectors).astype("float32"))
 
-print(f"✅ Index FAISS sauvegardé avec {len(vectors)} vecteurs pondérés.")
+    faiss.write_index(index, FAISS_INDEX_FILE)
+    with open(ID_MAPPING_FILE, "wb") as f:
+        pickle.dump(id_mapping, f)
+
+    print(f"✅ Index FAISS mis à jour avec {len(vectors)} profils.")
