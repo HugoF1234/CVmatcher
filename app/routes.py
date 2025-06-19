@@ -17,7 +17,7 @@ DB_NAME = "CVExtraction"
 COLLECTION_NAME = "CVExtractionCollection"
 FAISS_INDEX_FILE = "faiss_index/cv_index.faiss"
 ID_MAPPING_FILE = "faiss_index/id_mapping.pkl"
-GEMINI_API_KEY = "AIzaSyCsfLrbLkNiJKSKdQsIps3KK47sxLNVCMQ"
+GEMINI_API_KEY = "AIzaSyB2w2GCNE6EqvAtcA2Dj9rsvkD2YzFFMfM"
 TOP_K = 5
 
 # === INIT FAISS (si possible)
