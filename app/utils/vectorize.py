@@ -16,15 +16,12 @@ def update_faiss_index():
         # Lazy load du model pour éviter les imports au niveau module
         model = SentenceTransformer("all-MiniLM-L6-v2")
         
-        from config import MONGO_CLIENT_OPTIONS
-        try:
-            client = MongoClient(MONGO_URI, **MONGO_CLIENT_OPTIONS)
-            client.admin.command('ping')
-            logger.info("✅ Connexion MongoDB vectorize réussie")
-        except Exception as e:
-            logger.warning(f"⚠️ Erreur SSL MongoDB, tentative fallback: {e}")
-            client = MongoClient(MONGO_URI)
-            client.admin.command('ping')
+        from config import get_mongo_client
+        client = get_mongo_client()
+        
+        if not client:
+            logger.error("❌ Impossible de se connecter à MongoDB")
+            return False
             
         db = client[DB_NAME]
         collection = db[COLLECTION_NAME]
@@ -95,14 +92,12 @@ def update_faiss_index():
 def load_faiss_from_mongodb():
     """Charge l'index FAISS depuis MongoDB"""
     try:
-        from config import MONGO_CLIENT_OPTIONS
-        try:
-            client = MongoClient(MONGO_URI, **MONGO_CLIENT_OPTIONS)
-            client.admin.command('ping')
-        except Exception as e:
-            logger.warning(f"⚠️ Erreur SSL MongoDB, tentative fallback: {e}")
-            client = MongoClient(MONGO_URI)
-            client.admin.command('ping')
+        from config import get_mongo_client
+        client = get_mongo_client()
+        
+        if not client:
+            logger.error("❌ Impossible de se connecter à MongoDB pour FAISS")
+            return None, []
             
         db = client[DB_NAME]
         index_collection = db["faiss_index"]
