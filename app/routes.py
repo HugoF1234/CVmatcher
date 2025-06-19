@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, session, redirect
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for
 import faiss
 import numpy as np
 import os
@@ -22,18 +21,16 @@ ID_MAPPING_FILE = "id_mapping.pkl"
 GEMINI_API_KEY = "AIzaSyCsfLrbLkNiJKSKdQsIps3KK47sxLNVCMQ"
 TOP_K = 5
 
-if os.path.exists(FAISS_INDEX_FILE):
+if os.path.exists(FAISS_INDEX_FILE) and os.path.exists(ID_MAPPING_FILE):
     index = faiss.read_index(FAISS_INDEX_FILE)
     with open(ID_MAPPING_FILE, "rb") as f:
         id_mapping = pickle.load(f)
+    print("✅ Index FAISS chargé.")
 else:
     index = None
     id_mapping = []
     print("⚠️ Aucun index FAISS trouvé. Appuie sur 'Mettre à jour les CVs' pour le générer.")
-# === INIT ===
-index = faiss.read_index(FAISS_INDEX_FILE)
-with open(ID_MAPPING_FILE, "rb") as f:
-    id_mapping = pickle.load(f)
+
 model = SentenceTransformer("all-MiniLM-L6-v2")
 client = MongoClient(MONGO_URI)
 collection = client[DB_NAME][COLLECTION_NAME]
@@ -47,6 +44,8 @@ def home():
         session["likes"] = []
 
     if request.method == "POST":
+        if index is None:
+            return render_template("index.html", results=[], error="Aucun index encore disponible. Cliquez sur 'Mettre à jour les CVs'.")
         query = request.form.get("prompt")
         query_vec = model.encode(query)
         query_vec = np.array([query_vec]).astype("float32")
