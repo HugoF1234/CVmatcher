@@ -1,4 +1,5 @@
 import os
+import ssl
 
 # === CONFIGURATION CENTRALISÉE ===
 MONGO_URI = os.environ.get("MONGO_URI")
@@ -9,6 +10,17 @@ ID_MAPPING_FILE = "faiss_index/id_mapping.pkl"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyB2w2GCNE6EqvAtcA2Dj9rsvkD2YzFFMfM")
 TOP_K = 5
 SECRET_KEY = "0180529a5b9c1ec478296df826a91c31"
+
+# Configuration MongoDB avec SSL pour Render
+MONGO_CLIENT_OPTIONS = {
+    "ssl": True,
+    "ssl_cert_reqs": ssl.CERT_NONE,
+    "serverSelectionTimeoutMS": 5000,
+    "connectTimeoutMS": 10000,
+    "socketTimeoutMS": 10000,
+    "maxPoolSize": 10,
+    "retryWrites": True
+}
 
 # Créer le dossier faiss_index s'il n'existe pas
 os.makedirs("faiss_index", exist_ok=True)
