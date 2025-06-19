@@ -93,6 +93,13 @@ def home():
 
     return render_template("index.html", results=results)
 
+@app.route("/update-cvs", methods=["POST"])
+def update_cvs():
+    from app.watcher import run_watch
+    run_watch()
+    return redirect("/")
+
+
 @app.route("/toggle_like/<cv_id>")
 def toggle_like(cv_id):
     if "likes" not in session:
