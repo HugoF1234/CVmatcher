@@ -2,9 +2,18 @@ services:
   - type: web
     name: cv-matcher
     env: python
-    buildCommand: pip install -r requirements.txt
+    region: frankfurt
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: python main.py
+    healthCheckPath: /health
     envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 10000
       - key: GEMINI_API_KEY
         value: AIzaSyB2w2GCNE6EqvAtcA2Dj9rsvkD2YzFFMfM
       - key: MONGO_URI
