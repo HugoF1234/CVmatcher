@@ -49,7 +49,16 @@ def list_pdfs(service, folder_id):
             break
 
     return files
-
+    
+def process_and_insert_cv(filename):
+    text = extract_text_from_pdf(filename)
+    extracted_data = extract_info_with_gemini(text, filename=filename)
+    if extracted_data:
+        enriched_data = enrich_with_bio_and_sector(extracted_data)
+        insert_into_mongodb(enriched_data)
+        return True
+    return False
+    
 def download_file(service, file_id, file_name):
     request = service.files().get_media(fileId=file_id)
     with io.FileIO(file_name, 'wb') as fh:
