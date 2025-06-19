@@ -16,8 +16,8 @@ app.secret_key = "0180529a5b9c1ec478296df826a91c31"  # remplace par secrets.toke
 MONGO_URI = "mongodb://localhost:27017"
 DB_NAME = "CVExtraction"
 COLLECTION_NAME = "CVExtractionCollection"
-FAISS_INDEX_FILE = "cv_index.faiss"
-ID_MAPPING_FILE = "id_mapping.pkl"
+FAISS_INDEX_FILE = "faiss_index/cv_index.faiss"
+ID_MAPPING_FILE = "faiss_index/id_mapping.pkl"
 GEMINI_API_KEY = "AIzaSyCsfLrbLkNiJKSKdQsIps3KK47sxLNVCMQ"
 TOP_K = 5
 
