@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, session, redirect
 from flask import Flask, render_template, request, redirect, url_for
 import faiss
 import numpy as np
+import os
 import pickle
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
@@ -21,6 +22,14 @@ ID_MAPPING_FILE = "id_mapping.pkl"
 GEMINI_API_KEY = "AIzaSyCsfLrbLkNiJKSKdQsIps3KK47sxLNVCMQ"
 TOP_K = 5
 
+if os.path.exists(FAISS_INDEX_FILE):
+    index = faiss.read_index(FAISS_INDEX_FILE)
+    with open(ID_MAPPING_FILE, "rb") as f:
+        id_mapping = pickle.load(f)
+else:
+    index = None
+    id_mapping = []
+    print("⚠️ Aucun index FAISS trouvé. Appuie sur 'Mettre à jour les CVs' pour le générer.")
 # === INIT ===
 index = faiss.read_index(FAISS_INDEX_FILE)
 with open(ID_MAPPING_FILE, "rb") as f:
