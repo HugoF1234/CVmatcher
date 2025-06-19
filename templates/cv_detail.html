@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Détail du CV - {{ cv.nom }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: linear-gradient(to bottom right, #f8f9fa, #f1ecef);
+    }
+
+    nav {
+      background-color: #dbe3e7;
+      padding: 12px 20px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    nav a {
+      color: #34495e;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 20px;
+      background-color: white;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .logo-img {
+      height: 60px;
+      margin-right: 15px;
+    }
+
+    .brand {
+      font-size: 26px;
+      font-weight: bold;
+      color: #f27c6a;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: 40px auto;
+      background-color: #fff;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+
+    h1 {
+      color: #2c3e50;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .cv-section {
+      margin-bottom: 25px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #6e90a0;
+      border-left: 4px solid #f27c6a;
+      padding-left: 10px;
+    }
+
+    .cv-info p, .cv-info li {
+      font-size: 16px;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      text-decoration: none;
+      color: #f27c6a;
+      font-weight: bold;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/">⬅ Retour à la recherche</a>
+  </nav>
+
+  <header class="header">
+    <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
+    <span class="brand">TalentMatchers</span>
+  </header>
+
+  <div class="container">
+    <h1>{{ cv.nom }}</h1>
+
+    <div class="cv-section cv-info">
+      <p><strong>Email :</strong> {{ cv.email }}</p>
+      <p><strong>Secteur :</strong> {{ cv.secteur }}</p>
+      <p><strong>Langues :</strong> {{ cv.langues | join(', ') }}</p>
+      <p><strong>Compétences :</strong> {{ cv.competences | join(', ') }}</p>
+    </div>
+
+    <div class="cv-section">
+      <div class="section-title">Biographie</div>
+      <p>{{ cv.biographie }}</p>
+    </div>
+
+    <div class="cv-section">
+      <div class="section-title">Formations</div>
+      <ul>
+        {% for f in cv.formations %}
+          <li>{{ f.diplome }} – {{ f.etablissement }} ({{ f.annee }})</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="cv-section">
+      <div class="section-title">Expériences</div>
+      <ul>
+        {% for exp in cv.experiences %}
+          <li>
+            <strong>{{ exp.titre }}</strong> chez {{ exp.entreprise }} ({{ exp.dateDebut }} - {{ exp.dateFin }}) à {{ exp.lieu }}<br>
+            <em>{{ exp.description }}</em>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

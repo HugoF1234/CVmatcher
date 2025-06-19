@@ -1,1 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Profils favoris | TalentMatchers</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #f57a67;
+            --primary-dark: #e45c49;
+            --secondary: #6e90a0;
+            --light-bg: #f8fafc;
+            --dark-text: #2d3a4a;
+            --gray-light: #e9ecef;
+            --white: #ffffff;
+            --card-hover: #f0f7fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--light-bg) 0%, #f3e7e9 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: var(--dark-text);
+        }
+        
+        header {
+            display: flex;
+            background-color: var(--white);
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 40px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-img {
+            height: 70px;
+            width: auto;
+            object-fit: contain;
+        }
+        
+        .brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+        
+        .nav-main {
+            background: #dbe3e7;
+            padding: 12px 40px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-link {
+            position: relative;
+            padding: 8px 16px;
+            text-decoration: none;
+            font-weight: 600;
+            color: #444;
+            margin-right: 20px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .nav-link.active {
+            background-color: var(--white);
+            color: var(--primary);
+        }
+        
+        .nav-link i {
+            margin-right: 6px;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 32px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--dark-text);
+            font-size: 2rem;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        .likes-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .likes-header i {
+            color: #e74c3c;
+            font-size: 1.6rem;
+        }
+        
+        .likes-count {
+            background: var(--light-bg);
+            color: var(--secondary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .cv-card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 5px solid #e74c3c;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cv-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            background-color: var(--card-hover);
+        }
+        
+        .cv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .cv-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--dark-text);
+        }
+        
+        .cv-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .cv-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .detail-item {
+            padding: 12px;
+            background-color: var(--light-bg);
+            border-radius: 8px;
+        }
+        
+        .detail-label {
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .detail-value {
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .experience {
+            grid-column: 1 / -1;
+            background: #f0f7fa;
+            padding: 16px;
+            border-radius: 10px;
+            border-left: 3px solid var(--secondary);
+        }
+        
+        .remove-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background-color: #fee2e2;
+            border: 1px solid #e74c3c;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #e74c3c;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        
+        .remove-btn:hover {
+            background-color: #fecaca;
+            transform: translateY(-2px);
+        }
+        
+        .no-likes {
+            text-align: center;
+            padding: 40px 0;
+            color: #666;
+        }
+        
+        .no-likes i {
+            font-size: 3rem;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+        
+        .back-to-search {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .search-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        
+        .search-btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+                margin: 20px 16px;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 16px;
+            }
+            
+            .nav-main {
+                padding: 10px 16px;
+            }
+            
+            .cv-details {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .cv-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+        <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
+        <span class="brand">TalentMatchers</span>
+    </div>
+  </header>
+  
+  <nav class="nav-main">
+    <a href="/" class="nav-link"><i class="fas fa-search"></i> Recherche</a>
+    <a href="/likes" class="nav-link active"><i class="fas fa-heart"></i> Favoris</a>
+  </nav>
 
+  <div class="container">
+    <div class="likes-header">
+      <i class="fas fa-heart"></i>
+      <h1>Profils favoris</h1>
+      {% if results %}
+        <span class="likes-count">{{ results|length }}</span>
+      {% endif %}
+    </div>
+
+    {% if results %}
+      {% for cv in results %}
+        <div class="cv-card">
+          <div class="cv-header">
+            <div class="cv-name">{{ cv.nom }}</div>
+            <div class="cv-actions">
+              <a href="/toggle_like/{{ cv._id }}" class="remove-btn">
+                <i class="fas fa-heart-broken"></i> Retirer des favoris
+              </a>
+            </div>
+          </div>
+          
+          <div class="cv-details">
+            <div class="detail-item">
+              <span class="detail-label">Secteur</span>
+              <div class="detail-value">{{ cv.secteur }}</div>
+            </div>
+            
+            {% if cv.raison %}
+            <div class="detail-item">
+              <span class="detail-label">Raison de sélection</span>
+              <div class="detail-value">{{ cv.raison }}</div>
+            </div>
+            {% endif %}
+            
+            <div class="experience">
+              <span class="detail-label">Expérience récente</span>
+              <div class="detail-value">{{ cv.experiences[0].titre }} chez {{ cv.experiences[0].entreprise }}</div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="no-likes">
+        <i class="far fa-heart"></i>
+        <p>Vous n'avez pas encore de profils favoris.</p>
+        <p>Effectuez une recherche et ajoutez des profils à vos favoris pour les retrouver ici.</p>
+        
+        <div class="back-to-search">
+          <a href="/" class="search-btn">
+            <i class="fas fa-search"></i> Aller à la recherche
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>
