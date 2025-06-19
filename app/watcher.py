@@ -1,8 +1,3 @@
-from app.utils.drive_utils import connect_to_drive, list_pdfs, download_file
-from app.utils.enrich_db import process_and_insert_cv
-from app.utils.vectorize import update_faiss_index
-import os
-
 ALREADY_SEEN_FILE = "faiss_index/seen_cvs.txt"
 def run_watch():
     from app.utils.drive_utils import connect_to_drive, list_pdfs, download_file
