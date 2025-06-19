@@ -14,8 +14,9 @@ SECRET_KEY = "0180529a5b9c1ec478296df826a91c31"
 os.makedirs("faiss_index", exist_ok=True)
 
 def get_mongo_client():
-    """Retourne un client MongoDB avec gestion d'erreurs SSL spécifique Render"""
-    from pymongo import MongoClient
+    """Retourne un client MongoDB pour Render + Atlas avec ServerApi"""
+    from pymongo.mongo_client import MongoClient
+    from pymongo.server_api import ServerApi
     import logging
     logger = logging.getLogger(__name__)
     
@@ -23,41 +24,23 @@ def get_mongo_client():
         logger.error("❌ MONGO_URI non défini")
         return None
     
-    # Configurations spécifiques pour Render + Atlas
-    configs = [
-        # Config 1: URI avec tlsAllowInvalidCertificates
-        {"tlsAllowInvalidCertificates": True},
+    try:
+        logger.info("🔄 Connexion à MongoDB Atlas avec ServerApi...")
         
-        # Config 2: Désactiver totalement TLS/SSL  
-        {"tls": False, "ssl": False},
+        # Configuration avec ServerApi comme dans votre test réussi
+        client = MongoClient(
+            MONGO_URI, 
+            server_api=ServerApi('1'),
+            serverSelectionTimeoutMS=10000,
+            socketTimeoutMS=20000,
+            connectTimeoutMS=20000
+        )
         
-        # Config 3: Configuration par défaut
-        {},
+        # Test de connexion
+        client.admin.command('ping')
+        logger.info("✅ MongoDB Atlas connecté avec succès")
+        return client
         
-        # Config 4: TLS avec timeouts courts
-        {"tlsAllowInvalidCertificates": True, "serverSelectionTimeoutMS": 3000},
-    ]
-    
-    for i, config in enumerate(configs, 1):
-        try:
-            # Nettoyer l'URI des paramètres SSL conflictuels pour certaines configs
-            uri = MONGO_URI
-            if i == 2:  # Config sans SSL
-                # Supprimer les paramètres SSL de l'URI
-                uri = MONGO_URI.replace("&ssl=true", "").replace("ssl=true&", "").replace("ssl=true", "")
-                uri = uri.replace("&retryWrites=true", "").replace("retryWrites=true&", "").replace("retryWrites=true", "")
-            
-            logger.info(f"🔄 Tentative connexion MongoDB config {i}")
-            client = MongoClient(uri, **config)
-            
-            # Test rapide de connexion
-            client.admin.command('ping')
-            logger.info(f"✅ MongoDB connecté avec config {i}")
-            return client
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Config {i} échouée: {str(e)[:100]}...")
-            continue
-    
-    logger.error("❌ Toutes les configurations MongoDB ont échoué")
-    return None
+    except Exception as e:
+        logger.error(f"❌ Erreur de connexion MongoDB: {str(e)}")
+        return None
