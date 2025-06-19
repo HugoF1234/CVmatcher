@@ -13,7 +13,19 @@ def run_watch():
         from app.utils.vectorize import update_faiss_index
         
         # Utiliser MongoDB pour tracker les CVs vus
-        client = MongoClient(MONGO_URI)
+        from config import MONGO_CLIENT_OPTIONS
+        try:
+            client = MongoClient(MONGO_URI, **MONGO_CLIENT_OPTIONS)
+            # Test de connexion
+            client.admin.command('ping')
+            logger.info("✅ Connexion MongoDB watcher réussie")
+        except Exception as e:
+            logger.warning(f"⚠️ Erreur SSL MongoDB, tentative fallback: {e}")
+            # Fallback sans options SSL
+            client = MongoClient(MONGO_URI)
+            client.admin.command('ping')
+            logger.info("✅ Connexion MongoDB fallback réussie")
+            
         db = client[DB_NAME]
         seen_collection = db["seen_cvs"]
 
