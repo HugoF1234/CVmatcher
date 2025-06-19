@@ -17,4 +17,4 @@ services:
       - key: GEMINI_API_KEY
         value: AIzaSyB2w2GCNE6EqvAtcA2Dj9rsvkD2YzFFMfM
       - key: MONGO_URI
-        value: mongodb+srv://hugo:0JuCvi9Iu5iJjdRT@cluster0.zrj5a8c.mongodb.net/CVExtraction?retryWrites=true&w=majority&appName=Cluster0
+        value: mongodb+srv://hugo:wBSWQ8aJD63GFFXN@cluster0.zrj5a8c.mongodb.net/CVExtraction?retryWrites=true&w=majority&appName=Cluster0
