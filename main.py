@@ -6,7 +6,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@app.before_first_request
 def startup():
     logger.info("🚀 Application démarrée")
     logger.info(f"Port: {os.environ.get('PORT', 10000)}")
@@ -17,5 +16,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     debug = os.environ.get("FLASK_ENV") == "development"
     
+    startup()
     logger.info(f"🚀 Démarrage sur le port {port}")
     app.run(host="0.0.0.0", port=port, debug=debug)
