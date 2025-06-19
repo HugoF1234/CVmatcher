@@ -4,13 +4,12 @@ import numpy as np
 import os
 import pickle
 from pymongo import MongoClient
-from sentence_transformers import SentenceTransformer
 from bson import ObjectId
 import google.generativeai as genai
 import json
 
 app = Flask(__name__)
-app.secret_key = "0180529a5b9c1ec478296df826a91c31"  # remplace par secrets.token_hex(16)
+app.secret_key = "0180529a5b9c1ec478296df826a91c31"
 
 # === CONFIGURATION ===
 MONGO_URI = "mongodb://localhost:27017"
@@ -21,17 +20,21 @@ ID_MAPPING_FILE = "faiss_index/id_mapping.pkl"
 GEMINI_API_KEY = "AIzaSyCsfLrbLkNiJKSKdQsIps3KK47sxLNVCMQ"
 TOP_K = 5
 
+# === INIT FAISS (si possible)
+index = None
+id_mapping = []
 if os.path.exists(FAISS_INDEX_FILE) and os.path.exists(ID_MAPPING_FILE):
-    index = faiss.read_index(FAISS_INDEX_FILE)
-    with open(ID_MAPPING_FILE, "rb") as f:
-        id_mapping = pickle.load(f)
-    print("✅ Index FAISS chargé.")
+    try:
+        index = faiss.read_index(FAISS_INDEX_FILE)
+        with open(ID_MAPPING_FILE, "rb") as f:
+            id_mapping = pickle.load(f)
+        print("✅ Index FAISS chargé.")
+    except Exception as e:
+        print("⚠️ Erreur chargement FAISS :", e)
 else:
-    index = None
-    id_mapping = []
-    print("⚠️ Aucun index FAISS trouvé. Appuie sur 'Mettre à jour les CVs' pour le générer.")
+    print("⚠️ Aucun index FAISS trouvé. Cliquez sur 'Mettre à jour les CVs' pour le générer.")
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# === AUTRES INIT
 client = MongoClient(MONGO_URI)
 collection = client[DB_NAME][COLLECTION_NAME]
 genai.configure(api_key=GEMINI_API_KEY)
@@ -45,7 +48,12 @@ def home():
 
     if request.method == "POST":
         if index is None:
-            return render_template("index.html", results=[], error="Aucun index encore disponible. Cliquez sur 'Mettre à jour les CVs'.")
+            return render_template("index.html", results=[], error="Aucun index FAISS disponible. Cliquez sur 'Mettre à jour les CVs'.")
+
+        # Lazy load SentenceTransformer ici
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+
         query = request.form.get("prompt")
         query_vec = model.encode(query)
         query_vec = np.array([query_vec]).astype("float32")
@@ -58,7 +66,6 @@ def home():
             cv = collection.find_one({"_id": ObjectId(id_mapping[idx])})
             if cv: cv_list.append(cv)
 
-        # --- RERANK PROMPT (non modifié)
         rerank_prompt = (
             f"Tu es un assistant RH intelligent.\n"
             f"Voici la requête initiale de l'utilisateur : \"{query}\"\n\n"
@@ -107,7 +114,6 @@ def update_cvs():
     run_watch()
     return redirect("/")
 
-
 @app.route("/toggle_like/<cv_id>")
 def toggle_like(cv_id):
     if "likes" not in session:
@@ -139,6 +145,3 @@ def show_cv_detail(cv_id):
     except:
         return "ID invalide", 400
 
-
-if __name__ == "__main__":
-    app.run(debug=True)
