@@ -155,7 +155,7 @@ def enrich_with_bio_and_sector(cv_data):
     """Enrichit les données CV avec biographie et secteur"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
 
         nom = cv_data.get("nom", "")
         experiences = cv_data.get("experiences", [])
