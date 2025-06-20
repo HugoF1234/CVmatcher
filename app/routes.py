@@ -304,11 +304,11 @@ def update_cvs():
         
         logger.info("🚀 Mise à jour des CVs lancée en arrière-plan")
         
-        # Retourner immédiatement une réponse
+        # Retourner immédiatement une réponse JSON valide
         return jsonify({
             "status": "started",
             "message": "Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes."
-        })
+        }), 200
         
     except Exception as e:
         logger.error(f"❌ Erreur lancement mise à jour CVs: {e}")
@@ -316,7 +316,7 @@ def update_cvs():
             "status": "error",
             "message": f"Erreur: {str(e)}"
         }), 500
-
+        
 @app.route("/update-status")
 def update_status():
     """Endpoint pour vérifier le statut de la mise à jour"""
@@ -388,14 +388,18 @@ def show_cv_detail(cv_id):
 def health_check():
     """Endpoint de santé pour vérifier le statut des services"""
     try:
-        cv_count = collection.count_documents({}) if collection else 0
+        cv_count = 0
+        if collection is not None:
+            cv_count = collection.count_documents({})
+        
         status = {
             "mongodb": collection is not None,
             "cv_count": cv_count,
             "faiss": index is not None,
-            "faiss_entries": len(id_mapping) if index else 0,
+            "faiss_entries": len(id_mapping) if index is not None else 0,
             "gemini": gemini_model is not None
         }
-        return jsonify(status)
+        return jsonify(status), 200
     except Exception as e:
+        logger.error(f"❌ Erreur health check: {e}")
         return jsonify({"error": str(e)}), 500
