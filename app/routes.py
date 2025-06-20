@@ -31,7 +31,7 @@ def init_services():
     try:
         from config import get_mongo_client
         client = get_mongo_client()
-        if client:
+        if client is not None:
             collection = client[DB_NAME][COLLECTION_NAME]
         else:
             collection = None
@@ -57,7 +57,7 @@ def init_services():
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
             gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-            logger.info("✅ Gemini configuré")
+            logger.info("✅ Gemini 2.0 Flash configuré")
         else:
             logger.error("❌ GEMINI_API_KEY non défini")
     except Exception as e:
@@ -65,8 +65,6 @@ def init_services():
 
 # Initialiser au chargement du module
 init_services()
-
-# Ajoutez aussi cette route dans app/routes.py
 
 @app.route("/test-drive")
 def test_drive():
@@ -156,6 +154,7 @@ def debug_info():
         return jsonify(debug_data)
         
     except Exception as e:
+        logger.error(f"❌ Erreur debug: {e}")
         return jsonify({"error": str(e)}), 500
         
 @app.route("/", methods=["GET", "POST"])
@@ -203,7 +202,7 @@ def home():
                 return render_template("index.html", results=[], error="Aucun CV trouvé dans la base.")
 
             # Reranking avec Gemini
-            if gemini_model:
+            if gemini_model is not None:
                 try:
                     rerank_prompt = (
                         f"Tu es un assistant RH intelligent.\n"
@@ -316,7 +315,7 @@ def update_cvs():
             "status": "error",
             "message": f"Erreur: {str(e)}"
         }), 500
-        
+
 @app.route("/update-status")
 def update_status():
     """Endpoint pour vérifier le statut de la mise à jour"""
