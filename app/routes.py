@@ -56,7 +56,7 @@ def init_services():
     try:
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
-            gemini_model = genai.GenerativeModel("gemini-1.5-pro")
+            gemini_model = genai.GenerativeModel("gemini-2.0-flash")
             logger.info("✅ Gemini configuré")
         else:
             logger.error("❌ GEMINI_API_KEY non défini")
