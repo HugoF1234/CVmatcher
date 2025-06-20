@@ -192,7 +192,7 @@ def insert_into_mongodb(data):
     """Insère les données dans MongoDB"""
     try:
         collection = get_mongo_collection()
-        if not collection:
+        if collection is None:
             return False
             
         # Vérifier si le CV existe déjà (par nom ou nom du fichier PDF)
