@@ -66,6 +66,66 @@ def init_services():
 # Initialiser au chargement du module
 init_services()
 
+# Ajoutez cette route temporaire dans votre app/routes.py
+
+@app.route("/debug")
+def debug_info():
+    """Route de debug pour diagnostiquer les problèmes"""
+    try:
+        debug_data = {}
+        
+        # Test MongoDB
+        if collection:
+            cv_count = collection.count_documents({})
+            collections = collection.database.list_collection_names()
+            debug_data["mongodb"] = {
+                "connected": True,
+                "cv_count": cv_count,
+                "collections": collections
+            }
+            
+            # Vérifier s'il y a des CVs
+            if cv_count > 0:
+                sample_cv = collection.find_one({})
+                debug_data["sample_cv"] = {
+                    "nom": sample_cv.get("nom", "N/A"),
+                    "competences_count": len(sample_cv.get("competences", [])),
+                    "has_biographie": bool(sample_cv.get("biographie"))
+                }
+        else:
+            debug_data["mongodb"] = {"connected": False}
+        
+        # Test FAISS
+        if index:
+            debug_data["faiss"] = {
+                "available": True,
+                "entries": len(id_mapping),
+                "dimension": index.d if hasattr(index, 'd') else 'unknown'
+            }
+        else:
+            debug_data["faiss"] = {"available": False}
+            
+            # Vérifier s'il y a un index FAISS stocké en base
+            if collection:
+                faiss_collection = collection.database["faiss_index"]
+                faiss_doc = faiss_collection.find_one({"_id": "faiss_data"})
+                debug_data["faiss"]["stored_in_db"] = faiss_doc is not None
+                if faiss_doc:
+                    debug_data["faiss"]["stored_count"] = faiss_doc.get("vector_count", 0)
+        
+        # Test Google Drive credentials
+        creds_exist = os.path.exists('credentials/credentials.json')
+        token_exist = os.path.exists('credentials/token.json')
+        debug_data["google_drive"] = {
+            "credentials_file": creds_exist,
+            "token_file": token_exist
+        }
+        
+        return jsonify(debug_data)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     global index, id_mapping, collection, gemini_model
