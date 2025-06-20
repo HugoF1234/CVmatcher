@@ -66,8 +66,40 @@ def init_services():
 # Initialiser au chargement du module
 init_services()
 
-# Ajoutez cette route temporaire dans votre app/routes.py
+# Ajoutez aussi cette route dans app/routes.py
 
+@app.route("/test-drive")
+def test_drive():
+    """Test de la connexion Google Drive"""
+    try:
+        from app.utils.drive_utils import test_drive_connection, connect_to_drive, list_pdfs
+        
+        result = {"status": "testing"}
+        
+        # Test de connexion
+        if test_drive_connection():
+            result["connection"] = "success"
+            
+            # Test de listage des PDFs
+            try:
+                service = connect_to_drive()
+                folder_id = "16CpxlBPbm8ZMRBH-B7tj5cmn4h3bXCbt"
+                pdfs = list_pdfs(service, folder_id)
+                
+                result["pdfs_found"] = len(pdfs)
+                result["pdf_names"] = [pdf['name'] for pdf in pdfs[:5]]  # Première 5
+                
+            except Exception as e:
+                result["pdf_error"] = str(e)
+                
+        else:
+            result["connection"] = "failed"
+            
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
 @app.route("/debug")
 def debug_info():
     """Route de debug pour diagnostiquer les problèmes"""
