@@ -102,7 +102,7 @@ def extract_info_with_gemini(cv_text, filename=""):
     """Extrait les informations structurées avec Gemini"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
 
         prompt = (
             "Voici un CV. Peux-tu me retourner un JSON structuré avec les champs suivants :\n"
