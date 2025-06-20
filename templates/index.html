@@ -418,11 +418,9 @@
   <nav class="nav-main">
     <a href="/" class="nav-link active"><i class="fas fa-search"></i> Recherche</a>
     <a href="/likes" class="nav-link"><i class="fas fa-heart"></i> Favoris</a>
-    <form action="/update-cvs" method="post" style="margin-left: auto;">
-      <button type="submit" style="padding: 8px 16px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-        🔄 Mettre à jour les CVs
-      </button>
-    </form>
+    <button id="update-btn" onclick="updateCVs()" style="padding: 8px 16px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-left: auto;">
+      🔄 Mettre à jour les CVs
+    </button>
   </nav>
 
   <div class="container">
@@ -455,48 +453,47 @@
       </h2>
 
       {% for cv in results %}
-      <div class="cv-name">
-        <a href="{{ url_for('show_cv_detail', cv_id=cv._id) }}" style="text-decoration:none; color:#1e1e1e;">
-            {{ cv.nom }}
+      <div class="cv-card">
+        <div class="cv-card-header">
+          <div class="cv-name">
+            <a href="{{ url_for('show_cv_detail', cv_id=cv._id) }}" style="text-decoration:none; color:var(--dark-text);">
+              {{ cv.nom }}
+            </a>
+          </div>
+          <div class="score-container">
+            <span class="score-label">Score de pertinence</span>
+            <span class="score-value">{{ cv.score }} / 100</span>
+            <div class="progress-container">
+              <div class="progress-bar" style="width: {{ cv.score }}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cv-details">
+          <div class="cv-field">
+            <span class="cv-field-label">Secteur</span>
+            <div class="cv-field-value">{{ cv.secteur }}</div>
+          </div>
+
+          <div class="cv-field">
+            <span class="cv-field-label">Raison de sélection</span>
+            <div class="cv-field-value">{{ cv.raison }}</div>
+          </div>
+
+          <div class="cv-field recent-exp">
+            <span class="cv-field-label">Expérience récente</span>
+            <div class="cv-field-value">{{ cv.experiences[0].titre }} chez {{ cv.experiences[0].entreprise }}</div>
+          </div>
+        </div>
+
+        <a href="/toggle_like/{{ cv._id }}" class="like-btn">
+          {% if cv.liked %}
+            <i class="fas fa-heart"></i> Retirer des favoris
+          {% else %}
+            <i class="far fa-heart"></i> Ajouter aux favoris
+          {% endif %}
         </a>
       </div>
-        <div class="cv-card">
-          <div class="cv-card-header">
-            <div class="cv-name">{{ cv.nom }}</div>
-            <div class="score-container">
-              <span class="score-label">Score de pertinence</span>
-              <span class="score-value">{{ cv.score }} / 100</span>
-              <div class="progress-container">
-                <div class="progress-bar" style="width: {{ cv.score }}%"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="cv-details">
-            <div class="cv-field">
-              <span class="cv-field-label">Secteur</span>
-              <div class="cv-field-value">{{ cv.secteur }}</div>
-            </div>
-
-            <div class="cv-field">
-              <span class="cv-field-label">Raison de sélection</span>
-              <div class="cv-field-value">{{ cv.raison }}</div>
-            </div>
-
-            <div class="cv-field recent-exp">
-              <span class="cv-field-label">Expérience récente</span>
-              <div class="cv-field-value">{{ cv.experiences[0].titre }} chez {{ cv.experiences[0].entreprise }}</div>
-            </div>
-          </div>
-
-          <a href="/toggle_like/{{ cv._id }}" class="like-btn">
-            {% if cv.liked %}
-              <i class="fas fa-heart"></i> Retirer des favoris
-            {% else %}
-              <i class="far fa-heart"></i> Ajouter aux favoris
-            {% endif %}
-          </a>
-        </div>
       {% endfor %}
     {% elif request.method == 'POST' %}
       <div class="no-results">
@@ -506,6 +503,7 @@
       </div>
     {% endif %}
   </div>
+  
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const searchForm = document.getElementById('search-form');
@@ -525,6 +523,53 @@
         });
       }
     });
+
+    async function updateCVs() {
+      const updateBtn = document.getElementById('update-btn');
+      const originalText = updateBtn.innerHTML;
+      
+      // Désactiver le bouton et montrer le chargement
+      updateBtn.disabled = true;
+      updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mise à jour...';
+      
+      try {
+        const response = await fetch('/update-cvs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          updateBtn.innerHTML = '✅ Lancée !';
+          alert('Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes pour voir les nouveaux CVs.');
+          
+          // Réactiver le bouton après 3 secondes
+          setTimeout(() => {
+            updateBtn.disabled = false;
+            updateBtn.innerHTML = originalText;
+          }, 3000);
+        } else {
+          updateBtn.innerHTML = '❌ Erreur';
+          alert('Erreur: ' + result.message);
+          
+          setTimeout(() => {
+            updateBtn.disabled = false;
+            updateBtn.innerHTML = originalText;
+          }, 3000);
+        }
+      } catch (error) {
+        updateBtn.innerHTML = '❌ Erreur';
+        alert('Erreur de connexion: ' + error.message);
+        
+        setTimeout(() => {
+          updateBtn.disabled = false;
+          updateBtn.innerHTML = originalText;
+        }, 3000);
+      }
+    }
   </script>
 </body>
 </html>
