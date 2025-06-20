@@ -49,7 +49,7 @@ def run_watch():
 
         # Vérifier la collection MongoDB
         collection = get_mongo_collection()
-        if not collection:
+        if collection is None:
             logger.error("❌ Collection MongoDB non disponible")
             return False
             
