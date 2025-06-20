@@ -3,6 +3,7 @@ import io
 import json
 import fitz  # PyMuPDF
 import re
+import time
 import google.generativeai as genai
 from bson import ObjectId
 from googleapiclient.http import MediaIoBaseDownload
@@ -97,12 +98,38 @@ def extract_text_from_pdf(file_path):
         print(f"❌ Erreur extraction PDF {file_path}: {e}")
         return ""
 
+# === FONCTION AVEC RETRY POUR GEMINI ===
+def call_gemini_with_retry(model, prompt, max_retries=3, base_delay=5):
+    """Appelle Gemini avec retry automatique en cas de quota exceeded"""
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            error_str = str(e)
+            
+            # Si c'est une erreur de quota (429)
+            if "429" in error_str or "quota" in error_str.lower():
+                delay_seconds = base_delay * (2 ** attempt)  # Backoff exponentiel
+                print(f"⏱️ Quota dépassé, attente {delay_seconds}s (tentative {attempt + 1}/{max_retries})")
+                
+                if attempt < max_retries - 1:  # Ne pas attendre après la dernière tentative
+                    time.sleep(delay_seconds)
+                    continue
+            
+            # Autres erreurs ou dernière tentative
+            print(f"❌ Erreur Gemini (tentative {attempt + 1}/{max_retries}): {e}")
+            if attempt == max_retries - 1:
+                raise e
+    
+    return None
+
 # === EXTRACTION STRUCTURÉE AVEC GEMINI ===
 def extract_info_with_gemini(cv_text, filename=""):
-    """Extrait les informations structurées avec Gemini"""
+    """Extrait les informations structurées avec Gemini 2.0 Flash"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')  # ✅ Utiliser 2.0 Flash
 
         prompt = (
             "Voici un CV. Peux-tu me retourner un JSON structuré avec les champs suivants :\n"
@@ -117,11 +144,12 @@ def extract_info_with_gemini(cv_text, filename=""):
             "- biographie (rédigée par toi, décrivant le parcours professionnel du profil)\n"
             "Réponds uniquement avec du JSON valide. Pas de texte autour.\n\n"
             f"Nom du fichier PDF : {filename}\n\n"
-            f"Contenu du CV :\n{cv_text}"
+            f"Contenu du CV :\n{cv_text[:8000]}"  # Limiter pour éviter les tokens excessifs
         )
 
-        response = model.generate_content(prompt)
-        raw_text = response.text.strip()
+        raw_text = call_gemini_with_retry(model, prompt)
+        if not raw_text:
+            return None
 
         # Nettoyage du JSON
         if raw_text.startswith("```json"):
@@ -144,7 +172,7 @@ def extract_info_with_gemini(cv_text, filename=""):
         
     except json.JSONDecodeError as e:
         print(f"⚠️ Erreur parsing JSON pour {filename}: {e}")
-        print(f"Début de réponse Gemini : {raw_text[:200]}...")
+        print(f"Début de réponse Gemini : {raw_text[:200]}..." if 'raw_text' in locals() else "Pas de réponse")
         return None
     except Exception as e:
         print(f"❌ Erreur Gemini pour {filename}: {e}")
@@ -155,7 +183,7 @@ def enrich_with_bio_and_sector(cv_data):
     """Enrichit les données CV avec biographie et secteur"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')  # ✅ Utiliser 2.0 Flash
 
         nom = cv_data.get("nom", "")
         experiences = cv_data.get("experiences", [])
@@ -168,17 +196,17 @@ def enrich_with_bio_and_sector(cv_data):
         # Génération de la biographie
         if not cv_data.get("biographie"):
             bio_prompt = f"Voici un résumé de carrière à générer pour ce profil :\n{context}\nÉcris une biographie professionnelle synthétique en 2-3 phrases."
-            bio_resp = model.generate_content(bio_prompt)
-            cv_data["biographie"] = bio_resp.text.strip()
+            bio_text = call_gemini_with_retry(model, bio_prompt)
+            if bio_text:
+                cv_data["biographie"] = bio_text
 
         # Génération du secteur
         if not cv_data.get("secteur") or isinstance(cv_data["secteur"], str):
             sector_prompt = f"D'après ce profil, liste les secteurs professionnels associés (ex: finance, tech, retail). Donne-les dans une liste séparée par des virgules.\n{context}"
-            sector_resp = model.generate_content(sector_prompt)
-            secteur_text = sector_resp.text.strip()
-            # Convertir en liste si c'est une chaîne
-            if isinstance(secteur_text, str):
-                cv_data["secteur"] = [s.strip() for s in secteur_text.split(",")]
+            sector_text = call_gemini_with_retry(model, sector_prompt)
+            if sector_text:
+                # Convertir en liste si c'est une chaîne
+                cv_data["secteur"] = [s.strip() for s in sector_text.split(",")]
 
         print(f"✅ Enrichissement réussi pour {cv_data.get('nom', 'CV')}")
         return cv_data
@@ -195,7 +223,6 @@ def insert_into_mongodb(data):
         if collection is None:
             return False
             
-        # Vérifier si le CV existe déjà (par nom ou nom du fichier PDF)
         existing = collection.find_one({
             "$or": [
                 {"nom": data.get("nom")},
@@ -218,7 +245,7 @@ def insert_into_mongodb(data):
 
 # === MAIN ===
 if __name__ == '__main__':
-    print("🚀 Test d'enrichissement des CVs")
+    print("🚀 Test d'enrichissement des CVs avec Gemini 2.0 Flash")
     
     try:
         service = connect_to_drive()
@@ -227,8 +254,8 @@ if __name__ == '__main__':
 
         print(f"📁 {len(pdfs)} PDFs trouvés")
 
-        for i, pdf in enumerate(pdfs[:3], 1):  # Test sur les 3 premiers
-            print(f"\n--- Test {i}/{min(3, len(pdfs))} ---")
+        for i, pdf in enumerate(pdfs[:2], 1):  # Test sur les 2 premiers
+            print(f"\n--- Test {i}/{min(2, len(pdfs))} ---")
             filename = pdf['name']
             
             # Téléchargement
