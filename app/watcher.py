@@ -1,14 +1,18 @@
 import os
 import logging
+import time
 from pymongo import MongoClient
 from config import DB_NAME
 
 logger = logging.getLogger(__name__)
 
-def run_watch():
-    """Met à jour les CVs depuis Google Drive - Version améliorée"""
+def run_watch(batch_size=3, max_time_minutes=8):
+    """Met à jour les CVs par petits lots pour éviter les timeouts"""
+    start_time = time.time()
+    max_time_seconds = max_time_minutes * 60
+    
     try:
-        logger.info("🔍 Début de la mise à jour des CVs")
+        logger.info(f"🔍 Début mise à jour CVs (lots de {batch_size}, max {max_time_minutes}min)")
         
         # Import des modules nécessaires
         from app.utils.drive_utils import connect_to_drive, list_pdfs, download_file
@@ -76,7 +80,7 @@ def run_watch():
 
         if not pdfs:
             logger.warning("⚠️ Aucun PDF trouvé dans le dossier")
-            return True  # Pas d'erreur, juste rien à traiter
+            return True
 
         # Récupération des fichiers déjà vus
         seen = get_seen()
@@ -84,86 +88,124 @@ def run_watch():
         processed_count = 0
         error_count = 0
 
-        logger.info(f"🔄 Traitement: {len(pdfs)} PDFs total, {len(seen)} déjà vus")
+        # Filtrer les PDFs non traités
+        pdfs_to_process = [pdf for pdf in pdfs if pdf["id"] not in seen]
+        logger.info(f"🔄 {len(pdfs_to_process)} PDFs à traiter sur {len(pdfs)} total")
 
-        for i, pdf in enumerate(pdfs, 1):
-            pdf_id = pdf["id"]
-            filename = pdf["name"]
-            
-            logger.info(f"📄 [{i}/{len(pdfs)}] Traitement de {filename}")
-            
-            if pdf_id in seen:
-                logger.info(f"⏭️ {filename} déjà traité, ignoré")
-                continue
+        if not pdfs_to_process:
+            logger.info("✅ Tous les PDFs sont déjà traités")
+            return True
 
-            try:
-                # Téléchargement temporaire
-                logger.info(f"⬇️ Téléchargement de {filename}...")
-                download_success = download_file(service, pdf_id, filename)
+        # Traitement par lots
+        for batch_start in range(0, len(pdfs_to_process), batch_size):
+            # Vérifier le temps écoulé
+            elapsed_time = time.time() - start_time
+            if elapsed_time > max_time_seconds:
+                logger.warning(f"⏰ Timeout atteint ({max_time_minutes}min), arrêt du traitement")
+                break
+            
+            batch_end = min(batch_start + batch_size, len(pdfs_to_process))
+            batch = pdfs_to_process[batch_start:batch_end]
+            
+            logger.info(f"📦 Lot {batch_start//batch_size + 1}: traitement de {len(batch)} PDFs")
+            
+            for i, pdf in enumerate(batch):
+                pdf_id = pdf["id"]
+                filename = pdf["name"]
                 
-                if not download_success:
-                    logger.warning(f"⚠️ Échec téléchargement {filename}")
-                    error_count += 1
-                    continue
+                # Vérifier le temps pour chaque fichier
+                elapsed_time = time.time() - start_time
+                if elapsed_time > max_time_seconds:
+                    logger.warning(f"⏰ Timeout pendant traitement de {filename}")
+                    break
                 
-                # Traitement et insertion en base
-                logger.info(f"🔄 Traitement CV {filename}...")
-                success = process_and_insert_cv(filename)
+                logger.info(f"📄 [{batch_start + i + 1}/{len(pdfs_to_process)}] {filename}")
                 
-                if success:
-                    logger.info(f"✅ CV {filename} traité avec succès")
-                    new_seen.add(pdf_id)
-                    processed_count += 1
-                else:
-                    logger.warning(f"⚠️ Échec traitement {filename}")
-                    error_count += 1
-                
-                # Nettoyage du fichier temporaire
                 try:
-                    if os.path.exists(filename):
-                        os.remove(filename)
-                        logger.debug(f"🗑️ Fichier temporaire {filename} supprimé")
-                except Exception as cleanup_error:
-                    logger.warning(f"⚠️ Impossible de supprimer {filename}: {cleanup_error}")
+                    # Téléchargement avec timeout court
+                    logger.info(f"⬇️ Téléchargement...")
+                    download_success = download_file(service, pdf_id, filename)
+                    
+                    if not download_success:
+                        logger.warning(f"⚠️ Échec téléchargement {filename}")
+                        error_count += 1
+                        continue
+                    
+                    # Traitement avec monitoring du temps
+                    processing_start = time.time()
+                    logger.info(f"🔄 Traitement...")
+                    success = process_and_insert_cv(filename)
+                    processing_time = time.time() - processing_start
+                    
+                    if success:
+                        logger.info(f"✅ {filename} traité en {processing_time:.1f}s")
+                        new_seen.add(pdf_id)
+                        processed_count += 1
+                    else:
+                        logger.warning(f"⚠️ Échec traitement {filename}")
+                        error_count += 1
+                    
+                    # Nettoyage immédiat
+                    try:
+                        if os.path.exists(filename):
+                            os.remove(filename)
+                    except Exception as cleanup_error:
+                        logger.warning(f"⚠️ Nettoyage {filename}: {cleanup_error}")
+                    
+                    # Petite pause entre les fichiers pour éviter la surcharge
+                    time.sleep(1)
                         
-            except Exception as e:
-                logger.error(f"❌ Erreur traitement {filename}: {e}")
-                error_count += 1
-                
-                # Nettoyer en cas d'erreur
-                try:
-                    if os.path.exists(filename):
-                        os.remove(filename)
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(f"❌ Erreur traitement {filename}: {e}")
+                    error_count += 1
+                    
+                    # Nettoyer en cas d'erreur
+                    try:
+                        if os.path.exists(filename):
+                            os.remove(filename)
+                    except:
+                        pass
+            
+            # Sauvegarder après chaque lot
+            save_seen(new_seen)
+            logger.info(f"💾 Progression sauvegardée: {processed_count} traités")
+            
+            # Pause entre les lots
+            if batch_end < len(pdfs_to_process):
+                logger.info("⏸️ Pause 3s entre les lots...")
+                time.sleep(3)
 
-        # Sauvegarder la liste des fichiers traités
-        save_seen(new_seen)
-        
         # Statistiques finales
         final_count = collection.count_documents({})
         added_count = final_count - initial_count
+        total_time = time.time() - start_time
         
-        logger.info(f"📊 Statistiques:")
+        logger.info(f"📊 Statistiques finales:")
+        logger.info(f"   - Temps total: {total_time:.1f}s")
         logger.info(f"   - PDFs traités: {processed_count}")
         logger.info(f"   - Erreurs: {error_count}")
         logger.info(f"   - CVs en base: {initial_count} → {final_count} (+{added_count})")
         
         # Mettre à jour l'index FAISS si de nouveaux CVs ont été ajoutés
         if processed_count > 0:
-            logger.info("🔄 Mise à jour de l'index FAISS...")
+            logger.info("🔄 Mise à jour index FAISS...")
             try:
                 faiss_success = update_faiss_index()
                 if faiss_success:
-                    logger.info("✅ Index FAISS mis à jour et stocké en base")
+                    logger.info("✅ Index FAISS mis à jour")
                 else:
-                    logger.warning("⚠️ Erreur lors de la mise à jour FAISS")
+                    logger.warning("⚠️ Erreur FAISS")
             except Exception as e:
                 logger.error(f"❌ Erreur FAISS: {e}")
-        else:
-            logger.info("ℹ️ Aucun nouveau CV à indexer")
         
-        logger.info("✅ Mise à jour terminée avec succès")
+        # Indiquer s'il reste des fichiers à traiter
+        remaining = len(pdfs_to_process) - processed_count - error_count
+        if remaining > 0:
+            logger.info(f"ℹ️ {remaining} PDFs restants à traiter (relancez la mise à jour)")
+        else:
+            logger.info("✅ Tous les PDFs ont été traités")
+        
+        logger.info("✅ Mise à jour terminée")
         return True
         
     except Exception as e:
@@ -177,8 +219,8 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    print("🚀 Test de mise à jour des CVs")
-    success = run_watch()
+    print("🚀 Test de mise à jour des CVs par lots")
+    success = run_watch(batch_size=2, max_time_minutes=5)
     
     if success:
         print("✅ Test réussi")
