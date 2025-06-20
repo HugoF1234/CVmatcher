@@ -1,12 +1,11 @@
 import faiss
 import pickle
 import numpy as np
-from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
 from bson import ObjectId
 import logging
 import base64
-from config import MONGO_URI, DB_NAME, COLLECTION_NAME
+from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
 
