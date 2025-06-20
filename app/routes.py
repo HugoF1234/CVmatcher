@@ -106,8 +106,8 @@ def debug_info():
     try:
         debug_data = {}
         
-        # Test MongoDB
-        if collection:
+        # Test MongoDB - CORRECTION: utiliser collection is not None
+        if collection is not None:
             cv_count = collection.count_documents({})
             collections = collection.database.list_collection_names()
             debug_data["mongodb"] = {
@@ -127,8 +127,8 @@ def debug_info():
         else:
             debug_data["mongodb"] = {"connected": False}
         
-        # Test FAISS
-        if index:
+        # Test FAISS - CORRECTION: utiliser index is not None
+        if index is not None:
             debug_data["faiss"] = {
                 "available": True,
                 "entries": len(id_mapping),
@@ -138,7 +138,7 @@ def debug_info():
             debug_data["faiss"] = {"available": False}
             
             # Vérifier s'il y a un index FAISS stocké en base
-            if collection:
+            if collection is not None:
                 faiss_collection = collection.database["faiss_index"]
                 faiss_doc = faiss_collection.find_one({"_id": "faiss_data"})
                 debug_data["faiss"]["stored_in_db"] = faiss_doc is not None
@@ -157,7 +157,7 @@ def debug_info():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+        
 @app.route("/", methods=["GET", "POST"])
 def home():
     global index, id_mapping, collection, gemini_model
