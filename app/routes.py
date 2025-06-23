@@ -335,6 +335,49 @@ def run_update_background():
 
 # Ajouter cette route dans app/routes.py
 
+@app.route("/clean-index", methods=["POST"])
+def clean_index():
+    """Nettoie et recrée l'index FAISS"""
+    try:
+        from app.utils.vectorize import clean_faiss_index, update_faiss_index
+        
+        logger.info("🧹 Début nettoyage index FAISS")
+        
+        # Nettoyer l'ancien index
+        clean_success = clean_faiss_index()
+        if not clean_success:
+            return jsonify({
+                "status": "error",
+                "message": "Erreur lors du nettoyage"
+            }), 500
+        
+        # Recréer l'index
+        logger.info("🔄 Recréation de l'index FAISS")
+        create_success = update_faiss_index()
+        
+        if create_success:
+            # Recharger l'index en mémoire
+            global index, id_mapping
+            from app.utils.vectorize import load_faiss_from_mongodb
+            index, id_mapping = load_faiss_from_mongodb()
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Index FAISS recréé avec succès ({len(id_mapping) if id_mapping else 0} profils)"
+            })
+        else:
+            return jsonify({
+                "status": "error", 
+                "message": "Erreur lors de la recréation de l'index"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Erreur clean-index: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Erreur: {str(e)}"
+        }), 500
+        
 @app.route("/diagnostic")
 def run_diagnostic():
     """Route de diagnostic complète du système d'embedding"""
