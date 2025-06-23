@@ -332,6 +332,221 @@ def run_update_background():
     except Exception as e:
         logger.error(f"❌ Erreur mise à jour CVs en arrière-plan: {e}")
 
+
+# Ajouter cette route dans app/routes.py
+
+@app.route("/diagnostic")
+def run_diagnostic():
+    """Route de diagnostic complète du système d'embedding"""
+    try:
+        import json
+        from sentence_transformers import SentenceTransformer
+        import numpy as np
+        
+        diagnostic_results = {
+            "timestamp": str(datetime.now()),
+            "tests": {}
+        }
+        
+        # Test 1: MongoDB
+        try:
+            if collection is not None:
+                cv_count = collection.count_documents({})
+                sample_cv = collection.find_one({}) if cv_count > 0 else None
+                
+                diagnostic_results["tests"]["mongodb"] = {
+                    "status": "success",
+                    "cv_count": cv_count,
+                    "sample_cv": {
+                        "nom": sample_cv.get("nom", "N/A") if sample_cv else "N/A",
+                        "has_competences": bool(sample_cv.get("competences")) if sample_cv else False,
+                        "has_biographie": bool(sample_cv.get("biographie")) if sample_cv else False,
+                        "experiences_count": len(sample_cv.get("experiences", [])) if sample_cv else 0
+                    } if sample_cv else None
+                }
+            else:
+                diagnostic_results["tests"]["mongodb"] = {
+                    "status": "failed",
+                    "error": "Collection non disponible"
+                }
+        except Exception as e:
+            diagnostic_results["tests"]["mongodb"] = {
+                "status": "error",
+                "error": str(e)
+            }
+        
+        # Test 2: SentenceTransformer
+        try:
+            model = SentenceTransformer("all-MiniLM-L6-v2")
+            test_text = "développeur Python avec 5 ans d'expérience"
+            vector = model.encode(test_text)
+            
+            diagnostic_results["tests"]["sentence_transformer"] = {
+                "status": "success",
+                "model_name": "all-MiniLM-L6-v2",
+                "vector_dimension": len(vector),
+                "test_text": test_text
+            }
+        except Exception as e:
+            diagnostic_results["tests"]["sentence_transformer"] = {
+                "status": "error",
+                "error": str(e)
+            }
+        
+        # Test 3: FAISS Index
+        try:
+            if index is not None and id_mapping:
+                diagnostic_results["tests"]["faiss"] = {
+                    "status": "success",
+                    "entries": len(id_mapping),
+                    "dimension": index.d if hasattr(index, 'd') else 'unknown',
+                    "index_type": str(type(index))
+                }
+            else:
+                # Essayer de charger depuis MongoDB
+                from app.utils.vectorize import load_faiss_from_mongodb
+                test_index, test_mapping = load_faiss_from_mongodb()
+                
+                if test_index is not None:
+                    diagnostic_results["tests"]["faiss"] = {
+                        "status": "loaded_from_db",
+                        "entries": len(test_mapping),
+                        "dimension": test_index.d if hasattr(test_index, 'd') else 'unknown'
+                    }
+                else:
+                    diagnostic_results["tests"]["faiss"] = {
+                        "status": "not_available",
+                        "message": "Index FAISS non trouvé en mémoire ni en base"
+                    }
+        except Exception as e:
+            diagnostic_results["tests"]["faiss"] = {
+                "status": "error",
+                "error": str(e)
+            }
+        
+        # Test 4: Recherche vectorielle
+        try:
+            from app.utils.vectorize import search_similar_cvs
+            test_results = search_similar_cvs("développeur Python", top_k=3)
+            
+            diagnostic_results["tests"]["vector_search"] = {
+                "status": "success" if test_results else "no_results",
+                "results_count": len(test_results),
+                "sample_scores": [r["score"] for r in test_results[:3]] if test_results else []
+            }
+        except Exception as e:
+            diagnostic_results["tests"]["vector_search"] = {
+                "status": "error",
+                "error": str(e)
+            }
+        
+        # Test 5: Gemini
+        try:
+            if gemini_model is not None:
+                # Test simple sans vraiment appeler l'API
+                diagnostic_results["tests"]["gemini"] = {
+                    "status": "available",
+                    "model_configured": True
+                }
+            else:
+                diagnostic_results["tests"]["gemini"] = {
+                    "status": "not_configured",
+                    "api_key_present": bool(GEMINI_API_KEY)
+                }
+        except Exception as e:
+            diagnostic_results["tests"]["gemini"] = {
+                "status": "error",
+                "error": str(e)
+            }
+        
+        # Calcul du statut global
+        passed_tests = sum(1 for test in diagnostic_results["tests"].values() 
+                          if test.get("status") in ["success", "available", "loaded_from_db"])
+        total_tests = len(diagnostic_results["tests"])
+        
+        diagnostic_results["summary"] = {
+            "passed_tests": passed_tests,
+            "total_tests": total_tests,
+            "success_rate": f"{(passed_tests/total_tests)*100:.1f}%",
+            "overall_status": "healthy" if passed_tests >= 4 else "issues_detected"
+        }
+        
+        return jsonify(diagnostic_results)
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur diagnostic: {e}")
+        return jsonify({
+            "error": str(e),
+            "status": "critical_error"
+        }), 500
+
+# Route pour afficher le diagnostic de manière lisible
+@app.route("/diagnostic-ui")
+def diagnostic_ui():
+    """Interface web pour le diagnostic"""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Diagnostic Système</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .test { margin: 20px 0; padding: 15px; border-radius: 8px; }
+            .success { background-color: #d4edda; border-left: 5px solid #28a745; }
+            .error { background-color: #f8d7da; border-left: 5px solid #dc3545; }
+            .warning { background-color: #fff3cd; border-left: 5px solid #ffc107; }
+            pre { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+            button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <h1>🔍 Diagnostic du Système CV-Matcher</h1>
+        <button onclick="runDiagnostic()">🚀 Lancer le diagnostic</button>
+        <div id="results"></div>
+        
+        <script>
+        async function runDiagnostic() {
+            document.getElementById('results').innerHTML = '<p>⏳ Diagnostic en cours...</p>';
+            
+            try {
+                const response = await fetch('/diagnostic');
+                const data = await response.json();
+                
+                let html = '<h2>📊 Résultats</h2>';
+                
+                // Résumé
+                const summary = data.summary;
+                const statusClass = summary.overall_status === 'healthy' ? 'success' : 'warning';
+                html += `<div class="test ${statusClass}">
+                    <h3>📈 Résumé Global</h3>
+                    <p><strong>Tests réussis:</strong> ${summary.passed_tests}/${summary.total_tests} (${summary.success_rate})</p>
+                    <p><strong>Statut:</strong> ${summary.overall_status}</p>
+                </div>`;
+                
+                // Détails des tests
+                for (const [testName, result] of Object.entries(data.tests)) {
+                    const statusClass = result.status === 'success' || result.status === 'available' ? 'success' : 
+                                       result.status === 'error' ? 'error' : 'warning';
+                    
+                    html += `<div class="test ${statusClass}">
+                        <h3>${testName.toUpperCase()}</h3>
+                        <p><strong>Statut:</strong> ${result.status}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>`;
+                }
+                
+                document.getElementById('results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    `<div class="test error"><h3>❌ Erreur</h3><p>${error.message}</p></div>`;
+            }
+        }
+        </script>
+    </body>
+    </html>
+    """
+
 @app.route("/update-cvs", methods=["POST"])
 def update_cvs():
     """Lance la mise à jour des CVs de manière asynchrone pour éviter les timeouts"""
