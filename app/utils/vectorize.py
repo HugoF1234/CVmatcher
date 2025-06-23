@@ -37,29 +37,97 @@ def update_faiss_index():
         id_mapping = []
 
         for cv in cvs:
-            # Création du vecteur combiné
-            comp = " ".join(cv.get("competences", []))
-            bio = cv.get("biographie", "")
-            exp = " ".join([e.get("description", "") for e in cv.get("experiences", [])])
+            try:
+                # Création du texte combiné pour embedding
+                texts_to_embed = []
+                
+                # Compétences
+                competences = cv.get("competences", [])
+                if competences and isinstance(competences, list):
+                    comp_text = " ".join(competences)
+                    if comp_text.strip():
+                        texts_to_embed.append(comp_text)
+                
+                # Biographie
+                biographie = cv.get("biographie", "")
+                if biographie and isinstance(biographie, str) and biographie.strip():
+                    texts_to_embed.append(biographie)
+                
+                # Expériences - titre et description
+                experiences = cv.get("experiences", [])
+                if experiences and isinstance(experiences, list):
+                    for exp in experiences:
+                        if isinstance(exp, dict):
+                            titre = exp.get("titre", "")
+                            entreprise = exp.get("entreprise", "")
+                            description = exp.get("description", "")
+                            
+                            exp_text = " ".join([
+                                str(titre) if titre else "",
+                                str(entreprise) if entreprise else "",
+                                str(description) if description else ""
+                            ]).strip()
+                            
+                            if exp_text:
+                                texts_to_embed.append(exp_text)
+                
+                # Formations
+                formations = cv.get("formations", [])
+                if formations and isinstance(formations, list):
+                    for form in formations:
+                        if isinstance(form, dict):
+                            diplome = form.get("diplome", "")
+                            etablissement = form.get("etablissement", "")
+                            form_text = " ".join([
+                                str(diplome) if diplome else "",
+                                str(etablissement) if etablissement else ""
+                            ]).strip()
+                            if form_text:
+                                texts_to_embed.append(form_text)
+                
+                # Secteur
+                secteur = cv.get("secteur", [])
+                if secteur:
+                    if isinstance(secteur, list):
+                        secteur_text = " ".join(secteur)
+                    else:
+                        secteur_text = str(secteur)
+                    
+                    if secteur_text.strip():
+                        texts_to_embed.append(secteur_text)
+                
+                # Combiner tous les textes
+                if texts_to_embed:
+                    combined_text = " ".join(texts_to_embed)
+                    
+                    # Encoder le texte combiné
+                    vector = model.encode(combined_text)
+                    
+                    # Normaliser le vecteur
+                    vector = vector / np.linalg.norm(vector)
+                    
+                    vectors.append(vector)
+                    id_mapping.append(str(cv["_id"]))
+                    
+                    logger.debug(f"✅ Vecteur créé pour {cv.get('nom', 'CV sans nom')}")
+                else:
+                    logger.warning(f"⚠️ Aucun texte à vectoriser pour {cv.get('nom', 'CV sans nom')}")
+                    
+            except Exception as e:
+                logger.error(f"❌ Erreur vectorisation CV {cv.get('nom', 'inconnu')}: {e}")
+                continue
 
-            # Encodage avec pondération
-            emb_comp = model.encode(comp) if comp else np.zeros(384)
-            emb_bio = model.encode(bio) if bio else np.zeros(384)
-            emb_exp = model.encode(exp) if exp else np.zeros(384)
-
-            weighted_vector = (
-                0.2 * emb_comp +
-                0.4 * emb_bio +
-                0.6 * emb_exp
-            )
-
-            vectors.append(weighted_vector)
-            id_mapping.append(str(cv["_id"]))
+        if not vectors:
+            logger.error("❌ Aucun vecteur créé")
+            return False
 
         # Création de l'index FAISS
-        dimension = len(vectors[0])
-        index = faiss.IndexFlatL2(dimension)
-        index.add(np.array(vectors).astype("float32"))
+        vectors_array = np.array(vectors).astype("float32")
+        dimension = vectors_array.shape[1]
+        
+        # Utiliser IndexFlatIP (produit scalaire) plutôt que L2 pour les vecteurs normalisés
+        index = faiss.IndexFlatIP(dimension)
+        index.add(vectors_array)
 
         # Sérialisation pour stockage MongoDB
         index_bytes = faiss.serialize_index(index)
@@ -76,12 +144,13 @@ def update_faiss_index():
                 "index": index_b64,
                 "id_mapping": mapping_b64,
                 "vector_count": len(vectors),
-                "dimension": dimension
+                "dimension": dimension,
+                "model_name": "all-MiniLM-L6-v2"
             },
             upsert=True
         )
 
-        logger.info(f"✅ Index FAISS créé et stocké en base ({len(vectors)} profils)")
+        logger.info(f"✅ Index FAISS créé et stocké en base ({len(vectors)} profils, dimension {dimension})")
         return True
         
     except Exception as e:
@@ -119,3 +188,38 @@ def load_faiss_from_mongodb():
     except Exception as e:
         logger.error(f"❌ Erreur chargement index FAISS: {e}")
         return None, []
+
+def search_similar_cvs(query_text, top_k=5):
+    """Recherche des CVs similaires à la requête"""
+    try:
+        # Charger l'index
+        index, id_mapping = load_faiss_from_mongodb()
+        
+        if index is None or not id_mapping:
+            logger.error("❌ Index FAISS non disponible")
+            return []
+        
+        # Encoder la requête
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        query_vector = model.encode(query_text)
+        query_vector = query_vector / np.linalg.norm(query_vector)  # Normaliser
+        query_vector = np.array([query_vector]).astype("float32")
+        
+        # Recherche
+        scores, indices = index.search(query_vector, top_k)
+        
+        # Retourner les IDs et scores
+        results = []
+        for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
+            if idx < len(id_mapping):
+                results.append({
+                    "cv_id": id_mapping[idx],
+                    "score": float(score),
+                    "rank": i + 1
+                })
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur recherche vectorielle: {e}")
+        return []
