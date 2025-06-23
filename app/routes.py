@@ -11,7 +11,8 @@ import logging
 import threading
 from config import *
 from app import app
-
+import signal
+from contextlib import contextmanager
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,6 +24,22 @@ client = None
 collection = None
 gemini_model = None
 
+@contextmanager
+def timeout_context(seconds):
+    """Context manager pour timeout"""
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Opération timeout")
+    
+    # Configurer le signal d'alarme
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+        
 def init_services():
     """Initialise les services (MongoDB, FAISS, Gemini)"""
     global index, id_mapping, client, collection, gemini_model
@@ -177,33 +194,27 @@ def home():
             if not query:
                 return render_template("index.html", results=[], error="Veuillez saisir une requête.")
 
-            # Utiliser la fonction de recherche vectorielle améliorée
-            from app.utils.vectorize import search_similar_cvs
+            logger.info(f"🔍 Recherche: '{query}'")
             
-            # Recherche vectorielle
-            search_results = search_similar_cvs(query, top_k=TOP_K)
-            
-            if not search_results:
-                # Fallback : essayer de charger l'index manuellement
-                try:
-                    from app.utils.vectorize import load_faiss_from_mongodb
-                    index, id_mapping = load_faiss_from_mongodb()
-                    
-                    if index is None:
-                        return render_template("index.html", results=[], 
-                                             error="Index de recherche non disponible. Veuillez mettre à jour les CVs.")
-                    
-                    # Retry avec l'index rechargé
+            # Recherche vectorielle avec timeout
+            search_results = []
+            try:
+                with timeout_context(15):  # 15 secondes max pour la recherche vectorielle
+                    from app.utils.vectorize import search_similar_cvs
                     search_results = search_similar_cvs(query, top_k=TOP_K)
-                    
-                except Exception as e:
-                    logger.error(f"❌ Erreur fallback FAISS: {e}")
-                    return render_template("index.html", results=[], 
-                                         error="Erreur lors de la recherche. Veuillez réessayer.")
+                    logger.info(f"✅ Recherche vectorielle terminée: {len(search_results)} résultats")
+            except TimeoutError:
+                logger.warning("⏰ Timeout recherche vectorielle")
+                return render_template("index.html", results=[], 
+                                     error="Recherche trop longue, veuillez réessayer avec des termes plus simples.")
+            except Exception as e:
+                logger.error(f"❌ Erreur recherche vectorielle: {e}")
+                return render_template("index.html", results=[], 
+                                     error="Erreur de recherche. Veuillez réessayer.")
 
             if not search_results:
                 return render_template("index.html", results=[], 
-                                     error="Aucun CV trouvé correspondant à votre recherche.")
+                                     error="Aucun profil trouvé correspondant à votre recherche.")
 
             # Récupération des CVs depuis MongoDB
             cv_list = []
@@ -222,70 +233,80 @@ def home():
                 return render_template("index.html", results=[], 
                                      error="Erreur lors de la récupération des profils.")
 
-            # Reranking avec Gemini si disponible
+            # Reranking avec Gemini (avec timeout plus court)
             if gemini_model is not None:
                 try:
                     logger.info(f"🤖 Reranking Gemini pour {len(cv_list)} CVs")
                     
-                    rerank_prompt = (
-                        f"Tu es un assistant RH expert.\n"
-                        f"Requête utilisateur : \"{query}\"\n\n"
-                        f"Analyse et note chaque profil sur 100 selon sa pertinence pour cette requête.\n"
-                        f"Retourne les 3 meilleurs profils au format JSON :\n"
-                        f"[{{\"nom\": \"Nom Prénom\", \"score\": 95, \"raison\": \"Explication en 1-2 phrases\"}}, ...]\n\n"
-                        f"Profils à évaluer :\n"
-                    )
-                    
-                    for i, cv in enumerate(cv_list, 1):
-                        nom = cv.get('nom', f'Profil {i}')
-                        competences = cv.get('competences', [])
-                        biographie = cv.get('biographie', '')
-                        secteur = cv.get('secteur', '')
+                    with timeout_context(20):  # 20 secondes max pour Gemini
+                        rerank_prompt = (
+                            f"Tu es un assistant RH expert.\n"
+                            f"Requête utilisateur : \"{query}\"\n\n"
+                            f"Analyse et note chaque profil sur 100 selon sa pertinence pour cette requête.\n"
+                            f"Retourne les 3 meilleurs profils au format JSON :\n"
+                            f"[{{\"nom\": \"Nom Prénom\", \"score\": 95, \"raison\": \"Explication en 1-2 phrases\"}}, ...]\n\n"
+                            f"Profils à évaluer :\n"
+                        )
                         
-                        rerank_prompt += f"\n--- Profil {i} : {nom} ---\n"
-                        rerank_prompt += f"Secteur: {secteur}\n"
-                        rerank_prompt += f"Compétences: {', '.join(competences[:10])}\n"  # Limiter pour éviter le trop-plein
-                        rerank_prompt += f"Bio: {biographie[:400]}...\n"  # Tronquer la bio
-                        
-                        # Ajouter 1-2 expériences récentes
-                        experiences = cv.get("experiences", [])
-                        if experiences:
-                            rerank_prompt += "Expériences récentes:\n"
-                            for exp in experiences[:2]:
+                        for i, cv in enumerate(cv_list, 1):
+                            nom = cv.get('nom', f'Profil {i}')
+                            competences = cv.get('competences', [])
+                            biographie = cv.get('biographie', '')
+                            secteur = cv.get('secteur', '')
+                            
+                            rerank_prompt += f"\n--- Profil {i} : {nom} ---\n"
+                            rerank_prompt += f"Secteur: {secteur}\n"
+                            rerank_prompt += f"Compétences: {', '.join(competences[:8])}\n"  # Réduire pour éviter timeout
+                            rerank_prompt += f"Bio: {biographie[:300]}...\n"  # Réduire la bio
+                            
+                            # Ajouter 1 expérience récente seulement
+                            experiences = cv.get("experiences", [])
+                            if experiences:
+                                exp = experiences[0]
                                 titre = exp.get('titre', '')
                                 entreprise = exp.get('entreprise', '')
-                                rerank_prompt += f"- {titre} chez {entreprise}\n"
+                                rerank_prompt += f"Expérience: {titre} chez {entreprise}\n"
 
-                    response = gemini_model.generate_content(rerank_prompt)
-                    text = response.text.strip()
-                    
-                    # Nettoyage du JSON
-                    if text.startswith("```json"):
-                        text = text[7:-3].strip()
-                    elif text.startswith("```"):
-                        text = text[3:-3].strip()
-                    
-                    reranked = json.loads(text)
-                    logger.info(f"✅ Gemini reranking réussi: {len(reranked)} profils")
-                    
-                    # Construction des résultats finaux
-                    for r in reranked:
-                        # Chercher le CV correspondant
-                        matching_cv = None
-                        nom_recherche = r.get('nom', '').lower().strip()
+                        response = gemini_model.generate_content(rerank_prompt)
+                        text = response.text.strip()
                         
-                        for cv in cv_list:
-                            nom_cv = cv.get('nom', '').lower().strip()
-                            if nom_recherche in nom_cv or nom_cv in nom_recherche:
-                                matching_cv = cv
-                                break
+                        # Nettoyage du JSON
+                        if text.startswith("```json"):
+                            text = text[7:-3].strip()
+                        elif text.startswith("```"):
+                            text = text[3:-3].strip()
                         
-                        if matching_cv:
-                            matching_cv["score"] = r.get("score", 0)
-                            matching_cv["raison"] = r.get("raison", "Correspondance basée sur l'IA")
-                            matching_cv["liked"] = str(matching_cv["_id"]) in session["likes"]
-                            results.append(matching_cv)
+                        reranked = json.loads(text)
+                        logger.info(f"✅ Gemini reranking réussi: {len(reranked)} profils")
+                        
+                        # Construction des résultats finaux
+                        for r in reranked:
+                            # Chercher le CV correspondant
+                            matching_cv = None
+                            nom_recherche = r.get('nom', '').lower().strip()
                             
+                            for cv in cv_list:
+                                nom_cv = cv.get('nom', '').lower().strip()
+                                if nom_recherche in nom_cv or nom_cv in nom_recherche:
+                                    matching_cv = cv
+                                    break
+                            
+                            if matching_cv:
+                                matching_cv["score"] = r.get("score", 0)
+                                matching_cv["raison"] = r.get("raison", "Correspondance basée sur l'IA")
+                                matching_cv["liked"] = str(matching_cv["_id"]) in session["likes"]
+                                results.append(matching_cv)
+                                
+                except TimeoutError:
+                    logger.warning("⏰ Timeout Gemini reranking, utilisation scores FAISS")
+                    # Fallback sans Gemini
+                    for cv in cv_list[:3]:
+                        faiss_score = cv.get("_faiss_score", 0.5)
+                        cv["score"] = int(faiss_score * 100) if faiss_score <= 1 else int(faiss_score)
+                        cv["raison"] = "Correspondance basée sur l'analyse vectorielle"
+                        cv["liked"] = str(cv["_id"]) in session["likes"]
+                        results.append(cv)
+                        
                 except Exception as e:
                     logger.error(f"⚠️ Erreur Gemini reranking: {e}")
                     # Fallback sans Gemini
@@ -310,7 +331,7 @@ def home():
         except Exception as e:
             logger.error(f"❌ Erreur dans la recherche: {e}")
             return render_template("index.html", results=[], 
-                                 error=f"Erreur lors de la recherche: {str(e)}")
+                                 error="Erreur lors de la recherche. Veuillez réessayer.")
 
     return render_template("index.html", results=results)
 
