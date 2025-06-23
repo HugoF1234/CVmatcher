@@ -5,7 +5,8 @@ from sentence_transformers import SentenceTransformer
 from bson import ObjectId
 import logging
 import base64
-import io
+import tempfile
+import os
 from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
@@ -169,13 +170,25 @@ def update_faiss_index():
         
         logger.info(f"🔍 Index FAISS créé avec {index.ntotal} vecteurs")
 
-        # Sérialisation pour stockage MongoDB
-        # CORRECTION: Utiliser un buffer pour éviter les problèmes de sérialisation
-        buffer = io.BytesIO()
-        faiss.write_index(index, faiss.BufferIOWriter(buffer))
-        index_bytes = buffer.getvalue()
-        index_b64 = base64.b64encode(index_bytes).decode('utf-8')
+        # Sérialisation ROBUSTE avec fichier temporaire
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            temp_path = tmp_file.name
+            
+        try:
+            # Écrire l'index dans un fichier temporaire
+            faiss.write_index(index, temp_path)
+            
+            # Lire le fichier et encoder en base64
+            with open(temp_path, 'rb') as f:
+                index_bytes = f.read()
+            index_b64 = base64.b64encode(index_bytes).decode('utf-8')
+            
+        finally:
+            # Nettoyer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
         
+        # Sérialiser le mapping
         mapping_bytes = pickle.dumps(id_mapping)
         mapping_b64 = base64.b64encode(mapping_bytes).decode('utf-8')
 
@@ -224,16 +237,27 @@ def load_faiss_from_mongodb():
         
         logger.info(f"📖 Chargement index FAISS ({faiss_doc.get('vector_count', 0)} vecteurs)")
         
-        # Désérialisation CORRIGÉE
+        # Désérialisation ROBUSTE avec fichier temporaire
         index_b64 = faiss_doc.get("index")
         if not index_b64:
             logger.error("❌ Données index manquantes")
             return None, []
-            
-        # CORRECTION: Utiliser un buffer pour éviter les problèmes
+        
+        # Décoder et écrire dans un fichier temporaire
         index_bytes = base64.b64decode(index_b64)
-        buffer = io.BytesIO(index_bytes)
-        index = faiss.read_index(faiss.BufferIOReader(buffer))
+        
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            temp_path = tmp_file.name
+            tmp_file.write(index_bytes)
+        
+        try:
+            # Charger l'index depuis le fichier temporaire
+            index = faiss.read_index(temp_path)
+            
+        finally:
+            # Nettoyer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
         
         # Chargement du mapping
         mapping_b64 = faiss_doc.get("id_mapping")
