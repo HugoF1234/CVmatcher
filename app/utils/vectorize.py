@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 from bson import ObjectId
 import logging
 import base64
+import io
 from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,8 @@ logger = logging.getLogger(__name__)
 def update_faiss_index():
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
     try:
+        logger.info("🔄 Début création index FAISS")
+        
         # Lazy load du model pour éviter les imports au niveau module
         model = SentenceTransformer("all-MiniLM-L6-v2")
         
@@ -27,7 +30,7 @@ def update_faiss_index():
         index_collection = db["faiss_index"]
         
         cvs = list(collection.find({}))
-        logger.info(f"🔄 Création index FAISS pour {len(cvs)} CVs")
+        logger.info(f"📊 Traitement de {len(cvs)} CVs pour indexation")
 
         if not cvs:
             logger.warning("⚠️ Aucun CV trouvé pour l'indexation")
@@ -35,83 +38,114 @@ def update_faiss_index():
 
         vectors = []
         id_mapping = []
+        processed_count = 0
 
         for cv in cvs:
             try:
-                # Création du texte combiné pour embedding
-                texts_to_embed = []
+                # Construire le texte à vectoriser
+                text_parts = []
+                
+                # Nom
+                nom = cv.get("nom", "")
+                if nom and isinstance(nom, str):
+                    text_parts.append(nom)
                 
                 # Compétences
                 competences = cv.get("competences", [])
                 if competences and isinstance(competences, list):
-                    comp_text = " ".join(competences)
+                    comp_text = " ".join([str(c) for c in competences if c])
                     if comp_text.strip():
-                        texts_to_embed.append(comp_text)
+                        text_parts.append(comp_text)
                 
                 # Biographie
                 biographie = cv.get("biographie", "")
                 if biographie and isinstance(biographie, str) and biographie.strip():
-                    texts_to_embed.append(biographie)
-                
-                # Expériences - titre et description
-                experiences = cv.get("experiences", [])
-                if experiences and isinstance(experiences, list):
-                    for exp in experiences:
-                        if isinstance(exp, dict):
-                            titre = exp.get("titre", "")
-                            entreprise = exp.get("entreprise", "")
-                            description = exp.get("description", "")
-                            
-                            exp_text = " ".join([
-                                str(titre) if titre else "",
-                                str(entreprise) if entreprise else "",
-                                str(description) if description else ""
-                            ]).strip()
-                            
-                            if exp_text:
-                                texts_to_embed.append(exp_text)
-                
-                # Formations
-                formations = cv.get("formations", [])
-                if formations and isinstance(formations, list):
-                    for form in formations:
-                        if isinstance(form, dict):
-                            diplome = form.get("diplome", "")
-                            etablissement = form.get("etablissement", "")
-                            form_text = " ".join([
-                                str(diplome) if diplome else "",
-                                str(etablissement) if etablissement else ""
-                            ]).strip()
-                            if form_text:
-                                texts_to_embed.append(form_text)
+                    text_parts.append(biographie)
                 
                 # Secteur
                 secteur = cv.get("secteur", [])
                 if secteur:
                     if isinstance(secteur, list):
-                        secteur_text = " ".join(secteur)
+                        secteur_text = " ".join([str(s) for s in secteur if s])
                     else:
                         secteur_text = str(secteur)
                     
                     if secteur_text.strip():
-                        texts_to_embed.append(secteur_text)
+                        text_parts.append(secteur_text)
                 
-                # Combiner tous les textes
-                if texts_to_embed:
-                    combined_text = " ".join(texts_to_embed)
+                # Expériences (titre + entreprise + description)
+                experiences = cv.get("experiences", [])
+                if experiences and isinstance(experiences, list):
+                    for exp in experiences[:3]:  # Limiter aux 3 premières expériences
+                        if isinstance(exp, dict):
+                            exp_parts = []
+                            
+                            titre = exp.get("titre", "")
+                            if titre:
+                                exp_parts.append(str(titre))
+                            
+                            entreprise = exp.get("entreprise", "")
+                            if entreprise:
+                                exp_parts.append(str(entreprise))
+                            
+                            description = exp.get("description", "")
+                            if description and len(str(description)) > 10:  # Ignorer les descriptions trop courtes
+                                exp_parts.append(str(description)[:500])  # Limiter à 500 caractères
+                            
+                            if exp_parts:
+                                text_parts.append(" ".join(exp_parts))
+                
+                # Formations
+                formations = cv.get("formations", [])
+                if formations and isinstance(formations, list):
+                    for form in formations[:2]:  # Limiter aux 2 premières formations
+                        if isinstance(form, dict):
+                            form_parts = []
+                            
+                            diplome = form.get("diplome", "")
+                            if diplome:
+                                form_parts.append(str(diplome))
+                            
+                            etablissement = form.get("etablissement", "")
+                            if etablissement:
+                                form_parts.append(str(etablissement))
+                            
+                            if form_parts:
+                                text_parts.append(" ".join(form_parts))
+                
+                # Créer le texte final
+                if text_parts:
+                    combined_text = " ".join(text_parts)
                     
-                    # Encoder le texte combiné
-                    vector = model.encode(combined_text)
+                    # Nettoyer le texte
+                    combined_text = " ".join(combined_text.split())  # Supprimer espaces multiples
+                    combined_text = combined_text[:2000]  # Limiter la taille
                     
-                    # Normaliser le vecteur
-                    vector = vector / np.linalg.norm(vector)
-                    
-                    vectors.append(vector)
-                    id_mapping.append(str(cv["_id"]))
-                    
-                    logger.debug(f"✅ Vecteur créé pour {cv.get('nom', 'CV sans nom')}")
+                    if len(combined_text) > 10:  # Minimum 10 caractères
+                        # Encoder
+                        vector = model.encode(combined_text)
+                        
+                        # Vérifier que le vecteur est valide
+                        if vector is not None and len(vector) > 0:
+                            # Normaliser
+                            norm = np.linalg.norm(vector)
+                            if norm > 0:
+                                vector = vector / norm
+                                
+                                vectors.append(vector.astype(np.float32))
+                                id_mapping.append(str(cv["_id"]))
+                                processed_count += 1
+                                
+                                if processed_count % 10 == 0:
+                                    logger.info(f"📊 {processed_count} CVs vectorisés...")
+                            else:
+                                logger.warning(f"⚠️ Vecteur nul pour {cv.get('nom', 'CV sans nom')}")
+                        else:
+                            logger.warning(f"⚠️ Échec encodage pour {cv.get('nom', 'CV sans nom')}")
+                    else:
+                        logger.warning(f"⚠️ Texte trop court pour {cv.get('nom', 'CV sans nom')}")
                 else:
-                    logger.warning(f"⚠️ Aucun texte à vectoriser pour {cv.get('nom', 'CV sans nom')}")
+                    logger.warning(f"⚠️ Aucun texte extractible pour {cv.get('nom', 'CV sans nom')}")
                     
             except Exception as e:
                 logger.error(f"❌ Erreur vectorisation CV {cv.get('nom', 'inconnu')}: {e}")
@@ -121,40 +155,53 @@ def update_faiss_index():
             logger.error("❌ Aucun vecteur créé")
             return False
 
+        logger.info(f"✅ {len(vectors)} vecteurs créés avec succès")
+
         # Création de l'index FAISS
-        vectors_array = np.array(vectors).astype("float32")
+        vectors_array = np.array(vectors, dtype=np.float32)
         dimension = vectors_array.shape[1]
         
-        # Utiliser IndexFlatIP (produit scalaire) plutôt que L2 pour les vecteurs normalisés
+        logger.info(f"📐 Dimension des vecteurs: {dimension}")
+        
+        # Utiliser IndexFlatIP pour vecteurs normalisés (produit scalaire)
         index = faiss.IndexFlatIP(dimension)
         index.add(vectors_array)
+        
+        logger.info(f"🔍 Index FAISS créé avec {index.ntotal} vecteurs")
 
         # Sérialisation pour stockage MongoDB
-        index_bytes = faiss.serialize_index(index)
+        # CORRECTION: Utiliser un buffer pour éviter les problèmes de sérialisation
+        buffer = io.BytesIO()
+        faiss.write_index(index, faiss.BufferIOWriter(buffer))
+        index_bytes = buffer.getvalue()
         index_b64 = base64.b64encode(index_bytes).decode('utf-8')
         
         mapping_bytes = pickle.dumps(id_mapping)
         mapping_b64 = base64.b64encode(mapping_bytes).decode('utf-8')
 
+        # Supprimer l'ancien index si il existe
+        index_collection.delete_one({"_id": "faiss_data"})
+        
         # Stockage dans MongoDB
-        index_collection.replace_one(
-            {"_id": "faiss_data"},
-            {
-                "_id": "faiss_data",
-                "index": index_b64,
-                "id_mapping": mapping_b64,
-                "vector_count": len(vectors),
-                "dimension": dimension,
-                "model_name": "all-MiniLM-L6-v2"
-            },
-            upsert=True
-        )
-
-        logger.info(f"✅ Index FAISS créé et stocké en base ({len(vectors)} profils, dimension {dimension})")
+        doc_to_insert = {
+            "_id": "faiss_data",
+            "index": index_b64,
+            "id_mapping": mapping_b64,
+            "vector_count": len(vectors),
+            "dimension": dimension,
+            "model_name": "all-MiniLM-L6-v2",
+            "index_type": "IndexFlatIP"
+        }
+        
+        index_collection.insert_one(doc_to_insert)
+        
+        logger.info(f"💾 Index FAISS stocké en base ({len(vectors)} profils, dimension {dimension})")
         return True
         
     except Exception as e:
         logger.error(f"❌ Erreur création index FAISS: {e}")
+        import traceback
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         return False
 
 def load_faiss_from_mongodb():
@@ -175,18 +222,35 @@ def load_faiss_from_mongodb():
             logger.warning("⚠️ Aucun index FAISS trouvé en base")
             return None, []
         
-        # Désérialisation
-        index_bytes = base64.b64decode(faiss_doc["index"])
-        index = faiss.deserialize_index(index_bytes)
+        logger.info(f"📖 Chargement index FAISS ({faiss_doc.get('vector_count', 0)} vecteurs)")
         
-        mapping_bytes = base64.b64decode(faiss_doc["id_mapping"])
+        # Désérialisation CORRIGÉE
+        index_b64 = faiss_doc.get("index")
+        if not index_b64:
+            logger.error("❌ Données index manquantes")
+            return None, []
+            
+        # CORRECTION: Utiliser un buffer pour éviter les problèmes
+        index_bytes = base64.b64decode(index_b64)
+        buffer = io.BytesIO(index_bytes)
+        index = faiss.read_index(faiss.BufferIOReader(buffer))
+        
+        # Chargement du mapping
+        mapping_b64 = faiss_doc.get("id_mapping")
+        if not mapping_b64:
+            logger.error("❌ Mapping des IDs manquant")
+            return None, []
+            
+        mapping_bytes = base64.b64decode(mapping_b64)
         id_mapping = pickle.loads(mapping_bytes)
         
-        logger.info(f"✅ Index FAISS chargé depuis MongoDB ({len(id_mapping)} profils)")
+        logger.info(f"✅ Index FAISS chargé: {len(id_mapping)} profils, dimension {index.d}")
         return index, id_mapping
         
     except Exception as e:
         logger.error(f"❌ Erreur chargement index FAISS: {e}")
+        import traceback
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         return None, []
 
 def search_similar_cvs(query_text, top_k=5):
@@ -196,30 +260,67 @@ def search_similar_cvs(query_text, top_k=5):
         index, id_mapping = load_faiss_from_mongodb()
         
         if index is None or not id_mapping:
-            logger.error("❌ Index FAISS non disponible")
+            logger.error("❌ Index FAISS non disponible pour la recherche")
             return []
+        
+        logger.info(f"🔍 Recherche pour: '{query_text}' (top {top_k})")
         
         # Encoder la requête
         model = SentenceTransformer("all-MiniLM-L6-v2")
         query_vector = model.encode(query_text)
-        query_vector = query_vector / np.linalg.norm(query_vector)  # Normaliser
-        query_vector = np.array([query_vector]).astype("float32")
+        
+        # Normaliser
+        norm = np.linalg.norm(query_vector)
+        if norm > 0:
+            query_vector = query_vector / norm
+        
+        query_vector = np.array([query_vector], dtype=np.float32)
         
         # Recherche
-        scores, indices = index.search(query_vector, top_k)
+        scores, indices = index.search(query_vector, min(top_k, len(id_mapping)))
         
-        # Retourner les IDs et scores
+        # Retourner les résultats
         results = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx < len(id_mapping):
+            if idx >= 0 and idx < len(id_mapping):  # Vérifier la validité de l'index
                 results.append({
                     "cv_id": id_mapping[idx],
                     "score": float(score),
                     "rank": i + 1
                 })
         
+        logger.info(f"✅ {len(results)} résultats trouvés")
         return results
         
     except Exception as e:
         logger.error(f"❌ Erreur recherche vectorielle: {e}")
+        import traceback
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         return []
+
+def clean_faiss_index():
+    """Nettoie l'index FAISS en base (utilitaire de debug)"""
+    try:
+        from config import get_mongo_client
+        client = get_mongo_client()
+        
+        if not client:
+            logger.error("❌ Impossible de se connecter à MongoDB")
+            return False
+            
+        db = client[DB_NAME]
+        index_collection = db["faiss_index"]
+        
+        # Supprimer l'ancien index
+        result = index_collection.delete_one({"_id": "faiss_data"})
+        
+        if result.deleted_count > 0:
+            logger.info("✅ Index FAISS nettoyé")
+            return True
+        else:
+            logger.info("ℹ️ Aucun index à nettoyer")
+            return True
+            
+    except Exception as e:
+        logger.error(f"❌ Erreur nettoyage index: {e}")
+        return False
