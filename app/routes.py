@@ -157,6 +157,8 @@ def debug_info():
         logger.error(f"❌ Erreur debug: {e}")
         return jsonify({"error": str(e)}), 500
         
+# Remplacer la partie recherche dans routes.py
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     global index, id_mapping, collection, gemini_model
@@ -166,64 +168,93 @@ def home():
         session["likes"] = []
 
     if request.method == "POST":
-        if index is None or collection is None:
-            error_msg = "Services non disponibles. "
-            if index is None:
-                error_msg += "Index FAISS manquant. "
-            if collection is None:
-                error_msg += "Base de données non connectée."
+        if collection is None:
+            error_msg = "Base de données non connectée."
             return render_template("index.html", results=[], error=error_msg)
 
         try:
-            # Lazy load SentenceTransformer ici
-            from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer("all-MiniLM-L6-v2")
-
             query = request.form.get("prompt", "").strip()
             if not query:
                 return render_template("index.html", results=[], error="Veuillez saisir une requête.")
 
+            # Utiliser la fonction de recherche vectorielle améliorée
+            from app.utils.vectorize import search_similar_cvs
+            
             # Recherche vectorielle
-            query_vec = model.encode(query)
-            query_vec = np.array([query_vec]).astype("float32")
-            faiss.normalize_L2(query_vec)
-            D, I = index.search(query_vec, TOP_K)
+            search_results = search_similar_cvs(query, top_k=TOP_K)
+            
+            if not search_results:
+                # Fallback : essayer de charger l'index manuellement
+                try:
+                    from app.utils.vectorize import load_faiss_from_mongodb
+                    index, id_mapping = load_faiss_from_mongodb()
+                    
+                    if index is None:
+                        return render_template("index.html", results=[], 
+                                             error="Index de recherche non disponible. Veuillez mettre à jour les CVs.")
+                    
+                    # Retry avec l'index rechargé
+                    search_results = search_similar_cvs(query, top_k=TOP_K)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erreur fallback FAISS: {e}")
+                    return render_template("index.html", results=[], 
+                                         error="Erreur lors de la recherche. Veuillez réessayer.")
 
-            # Récupération des CVs
+            if not search_results:
+                return render_template("index.html", results=[], 
+                                     error="Aucun CV trouvé correspondant à votre recherche.")
+
+            # Récupération des CVs depuis MongoDB
             cv_list = []
-            for idx in I[0]:
-                if idx >= len(id_mapping): 
+            for result in search_results:
+                try:
+                    cv = collection.find_one({"_id": ObjectId(result["cv_id"])})
+                    if cv:
+                        cv["_faiss_score"] = result["score"]
+                        cv["_rank"] = result["rank"]
+                        cv_list.append(cv)
+                except Exception as e:
+                    logger.error(f"❌ Erreur récupération CV {result['cv_id']}: {e}")
                     continue
-                cv = collection.find_one({"_id": ObjectId(id_mapping[idx])})
-                if cv: 
-                    cv_list.append(cv)
 
             if not cv_list:
-                return render_template("index.html", results=[], error="Aucun CV trouvé dans la base.")
+                return render_template("index.html", results=[], 
+                                     error="Erreur lors de la récupération des profils.")
 
-            # Reranking avec Gemini
+            # Reranking avec Gemini si disponible
             if gemini_model is not None:
                 try:
+                    logger.info(f"🤖 Reranking Gemini pour {len(cv_list)} CVs")
+                    
                     rerank_prompt = (
-                        f"Tu es un assistant RH intelligent.\n"
-                        f"Voici la requête initiale de l'utilisateur : \"{query}\"\n\n"
-                        f"Tu dois d'abord **réinterpréter cette requête** de façon enrichie (synonymes, précisions, contexte).\n"
-                        f"Ensuite, évalue pour chacun des CVs ci-dessous :\n"
-                        f"- un score de pertinence entre 0 et 100\n"
-                        f"- une explication du score (2 phrases max)\n"
-                        f"Enfin, retourne uniquement les **3 meilleurs** profils.\n\n"
-                        f"Réponds au format JSON, comme ceci :\n"
-                        f"[{{\"nom\": \"Nom Prénom\", \"score\": 92, \"raison\": \"...\"}}, ...]\n\n"
-                        f"Voici les CVs à évaluer :\n"
+                        f"Tu es un assistant RH expert.\n"
+                        f"Requête utilisateur : \"{query}\"\n\n"
+                        f"Analyse et note chaque profil sur 100 selon sa pertinence pour cette requête.\n"
+                        f"Retourne les 3 meilleurs profils au format JSON :\n"
+                        f"[{{\"nom\": \"Nom Prénom\", \"score\": 95, \"raison\": \"Explication en 1-2 phrases\"}}, ...]\n\n"
+                        f"Profils à évaluer :\n"
                     )
                     
-                    for cv in cv_list:
-                        rerank_prompt += f"\n---\nNom : {cv.get('nom', 'Inconnu')}\n"
-                        rerank_prompt += f"Compétences : {', '.join(cv.get('competences', []))}\n"
-                        rerank_prompt += f"Biographie : {cv.get('biographie', '')[:300]}\n"
-                        rerank_prompt += f"Expériences :\n"
-                        for exp in cv.get("experiences", [])[:2]:
-                            rerank_prompt += f"- {exp.get('titre', '')} chez {exp.get('entreprise', '')} ({exp.get('dateDebut', '')} - {exp.get('dateFin', '')})\n"
+                    for i, cv in enumerate(cv_list, 1):
+                        nom = cv.get('nom', f'Profil {i}')
+                        competences = cv.get('competences', [])
+                        biographie = cv.get('biographie', '')
+                        secteur = cv.get('secteur', '')
+                        
+                        rerank_prompt += f"\n--- Profil {i} : {nom} ---\n"
+                        rerank_prompt += f"Secteur: {secteur}\n"
+                        rerank_prompt += f"Compétences: {', '.join(competences[:10])}\n"  # Limiter pour éviter le trop-plein
+                        rerank_prompt += f"Bio: {biographie[:400]}...\n"  # Tronquer la bio
+                        
+                        # Ajouter 1-2 expériences récentes
+                        experiences = cv.get("experiences", [])
+                        if experiences:
+                            rerank_prompt += "Expériences récentes:\n"
+                            for exp in experiences[:2]:
+                                titre = exp.get('titre', '')
+                                entreprise = exp.get('entreprise', '')
+                                rerank_prompt += f"- {titre} chez {entreprise}\n"
 
                     response = gemini_model.generate_content(rerank_prompt)
                     text = response.text.strip()
@@ -235,35 +266,51 @@ def home():
                         text = text[3:-3].strip()
                     
                     reranked = json.loads(text)
+                    logger.info(f"✅ Gemini reranking réussi: {len(reranked)} profils")
                     
-                    # Construction des résultats
+                    # Construction des résultats finaux
                     for r in reranked:
-                        cv = collection.find_one({"nom": {"$regex": f"^{r['nom']}$", "$options": "i"}})
-                        if cv:
-                            cv["score"] = r.get("score", 0)
-                            cv["raison"] = r.get("raison", "Non précisée")
-                            cv["liked"] = str(cv["_id"]) in session["likes"]
-                            results.append(cv)
+                        # Chercher le CV correspondant
+                        matching_cv = None
+                        nom_recherche = r.get('nom', '').lower().strip()
+                        
+                        for cv in cv_list:
+                            nom_cv = cv.get('nom', '').lower().strip()
+                            if nom_recherche in nom_cv or nom_cv in nom_recherche:
+                                matching_cv = cv
+                                break
+                        
+                        if matching_cv:
+                            matching_cv["score"] = r.get("score", 0)
+                            matching_cv["raison"] = r.get("raison", "Correspondance basée sur l'IA")
+                            matching_cv["liked"] = str(matching_cv["_id"]) in session["likes"]
+                            results.append(matching_cv)
                             
                 except Exception as e:
                     logger.error(f"⚠️ Erreur Gemini reranking: {e}")
-                    # Fallback: retourner les résultats FAISS sans reranking
+                    # Fallback sans Gemini
                     for cv in cv_list[:3]:
-                        cv["score"] = 85  # Score par défaut
+                        faiss_score = cv.get("_faiss_score", 0.5)
+                        cv["score"] = int(faiss_score * 100) if faiss_score <= 1 else int(faiss_score)
                         cv["raison"] = "Correspondance basée sur l'analyse vectorielle"
                         cv["liked"] = str(cv["_id"]) in session["likes"]
                         results.append(cv)
             else:
-                # Pas de Gemini disponible
+                # Pas de Gemini - utiliser scores FAISS
+                logger.info("📊 Utilisation des scores FAISS (pas de Gemini)")
                 for cv in cv_list[:3]:
-                    cv["score"] = 85
+                    faiss_score = cv.get("_faiss_score", 0.5)
+                    cv["score"] = int(faiss_score * 100) if faiss_score <= 1 else int(faiss_score)
                     cv["raison"] = "Correspondance basée sur l'analyse vectorielle"
                     cv["liked"] = str(cv["_id"]) in session["likes"]
                     results.append(cv)
 
+            logger.info(f"🎯 Recherche terminée: {len(results)} résultats pour '{query}'")
+
         except Exception as e:
             logger.error(f"❌ Erreur dans la recherche: {e}")
-            return render_template("index.html", results=[], error=f"Erreur lors de la recherche: {str(e)}")
+            return render_template("index.html", results=[], 
+                                 error=f"Erreur lors de la recherche: {str(e)}")
 
     return render_template("index.html", results=results)
 
