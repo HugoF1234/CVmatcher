@@ -11,13 +11,16 @@ from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
 
+# Charger le modèle UNE SEULE FOIS au niveau du module
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
 def update_faiss_index():
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
     try:
         logger.info("🔄 Début création index FAISS")
         
-        # Lazy load du model pour éviter les imports au niveau module
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Utiliser le modèle global déjà chargé
+        # model = SentenceTransformer("all-MiniLM-L6-v2")  # SUPPRIMÉ
         
         from config import get_mongo_client
         client = get_mongo_client()
@@ -289,8 +292,8 @@ def search_similar_cvs(query_text, top_k=5):
         
         logger.info(f"🔍 Recherche pour: '{query_text}' (top {top_k})")
         
-        # Encoder la requête
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Utiliser le modèle global déjà chargé
+        # model = SentenceTransformer("all-MiniLM-L6-v2")  # SUPPRIMÉ
         query_vector = model.encode(query_text)
         
         # Normaliser
