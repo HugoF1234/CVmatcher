@@ -1,4 +1,4 @@
-Flask
+flask
 faiss-cpu
 numpy
 sentence-transformers
@@ -9,3 +9,5 @@ google-api-python-client
 PyMuPDF
 google-generativeai
 gunicorn
+jinja2
+gcsfs
