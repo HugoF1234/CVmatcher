@@ -17,14 +17,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# --- Optimisation: Pré-télécharger le modèle ---
-# Cela évite le téléchargement à chaque démarrage du conteneur
+# --- Optimisation: Pré-télécharger le modèle et configurer le cache ---
+# On définit une variable d'environnement pour que le cache soit dans un dossier accessible en écriture
+ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
+# On pré-télécharge le bon modèle utilisé par le code
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Copier le reste du code de l'application
 COPY . .
 
 # Changer le propriétaire des fichiers pour l'utilisateur non-root
+# On s'assure que le dossier du cache appartient aussi au bon utilisateur
 RUN chown -R app:app /app
 
 # Changer d'utilisateur
