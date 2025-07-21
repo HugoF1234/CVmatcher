@@ -1,17 +1,39 @@
-FROM python:3.10-slim
+# Étape 1: Utiliser une image Python 3.9 slim comme base
+FROM python:3.9-slim
 
-# Empêche Python de bufferiser les logs
-ENV PYTHONUNBUFFERED True
+# Définir l'environnement pour éviter que Python ne génère des fichiers .pyc
+ENV PYTHONDONTWRITEBYTECODE 1
+# Définir l'environnement pour que les logs ne soient pas mis en buffer
+ENV PYTHONUNBUFFERED 1
 
+# Définir le répertoire de travail
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Créer un utilisateur non-root pour des raisons de sécurité
+RUN addgroup --system app && adduser --system --group app
 
+# Mettre à jour pip et installer les dépendances
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# --- Optimisation: Pré-télécharger le modèle ---
+# Cela évite le téléchargement à chaque démarrage du conteneur
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+# Copier le reste du code de l'application
 COPY . .
 
-# Expose le port par défaut attendu par Cloud Run
+# Changer le propriétaire des fichiers pour l'utilisateur non-root
+RUN chown -R app:app /app
+
+# Changer d'utilisateur
+USER app
+
+# Exposer le port que Cloud Run utilisera
+# Cloud Run injecte la variable d'environnement PORT, par défaut 8080
 EXPOSE 8080
 
-# Lancer Gunicorn avec le bon module/app
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]
+# Commande pour lancer l'application avec Gunicorn
+# Utilise la variable $PORT fournie par Cloud Run
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
