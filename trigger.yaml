@@ -1,26 +1,17 @@
-    # Fichier de configuration pour le déclencheur Cloud Build (version 3, la bonne)
-    name: deploy-to-cloud-run
-    description: "Déclencheur pour déployer CVmatcher sur Cloud Run depuis la branche main"
+# trigger.yaml
+name: deploy-to-cloud-run
+description: "Déclencheur pour déployer CVmatcher sur Cloud Run depuis la branche main"
 
-    # Source (GitHub)
-    github:
-      owner: 'HugoF1234'
-      name: 'CVmatcher'
-      push:
-        branch: '^main$'
+# Source (GitHub)
+github:
+  owner: 'HugoF1234'
+  name: 'CVmatcher'
+  push:
+    branch: '^main$'
 
-    # Configuration de la compilation
-    # On définit ici ce que le build doit faire
-    build:
-      # On spécifie le Dockerfile à utiliser
-      dockerfile: 'Dockerfile'
-      # Et le nom de l'image Docker qui sera construite et poussée
-      # $PROJECT_ID et $COMMIT_SHA sont des variables fournies par Cloud Build
-      images:
-        - 'gcr.io/$PROJECT_ID/cvmatcher-image:$COMMIT_SHA'
+# Configuration de la compilation
+# On dit au trigger d'utiliser la configuration définie dans cloudbuild.yaml
+filename: 'cloudbuild.yaml'
 
-    # Compte de service à utiliser
-    serviceAccount: 'projects/cvmatcher-v2/serviceAccounts/cvmatcher2@cvmatcher-v2.iam.gserviceaccount.com'
-
-    # Mode de journalisation
-    loggingMode: CLOUD_LOGGING_ONLY
+# Compte de service
+serviceAccount: 'projects/cvmatcher-v2/serviceAccounts/cvmatcher2@cvmatcher-v2.iam.gserviceaccount.com'
