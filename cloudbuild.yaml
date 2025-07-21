@@ -1,31 +1,15 @@
+# cloudbuild.yaml
+# Ce fichier décrit les étapes de construction de l'image Docker
+
 steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-t', 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest', '.' ]
+  # Étape 1: Construire l'image Docker
+  # On utilise le builder Docker fourni par Google
+- name: 'gcr.io/cloud-builders/docker'
+  # On exécute la commande "docker build"
+  # -t : pour tagger (nommer) l'image
+  # .  : pour dire que le Dockerfile est dans le dossier courant
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/cvmatcher-image:$COMMIT_SHA', '.']
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'push', 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest' ]
-
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'cv-matcher-service'
-      - '--image'
-      - 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest'
-      - '--region'
-      - 'europe-west1'
-      - '--platform'
-      - 'managed'
-      - '--memory'
-      - '4Gi'
-      - '--cpu'
-      - '1'
-      - '--port'
-      - '8080'
-      - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'FLASK_ENV=production,GEMINI_API_KEY=AIzaSyBST1NZu1zU-qffOWtoNn6uhzODaJBviiQ,MONGO_URI=mongodb+srv://cvuser:TestPass123@cluster0.blkzqjy.mongodb.net/CVExtraction?retryWrites=true&w=majority&appName=Cluster0'
-
+# Une fois le build terminé, on indique à Cloud Build que cette image est un "artefact" à sauvegarder.
 images:
-  - 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest'
+- 'gcr.io/$PROJECT_ID/cvmatcher-image:$COMMIT_SHA'
