@@ -1,8 +1,10 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'build', '-t', 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest', '.' ]
+
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest' ]
+
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -24,3 +26,6 @@ steps:
       - '--allow-unauthenticated'
       - '--set-env-vars'
       - 'FLASK_ENV=production,GEMINI_API_KEY=AIzaSyBST1NZu1zU-qffOWtoNn6uhzODaJBviiQ,MONGO_URI=mongodb+srv://cvuser:TestPass123@cluster0.blkzqjy.mongodb.net/CVExtraction?retryWrites=true&w=majority&appName=Cluster0'
+
+images:
+  - 'europe-west1-docker.pkg.dev/cvmatcher-v2/cvmatcher-repo/cv-matcher-app:latest'
