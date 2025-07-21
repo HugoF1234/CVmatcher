@@ -1,6 +1,12 @@
-import os
-from app import app
+from flask import Flask
+from routes import bp as routes_bp  # On importe le blueprint défini dans routes.py
+
+def create_app():
+    app = Flask(__name__)
+    app.register_blueprint(routes_bp)  # Enregistrement du blueprint
+    return app
+
+app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=8080)
