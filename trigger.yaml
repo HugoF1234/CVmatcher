@@ -1,0 +1,22 @@
+# Fichier de configuration pour le déclencheur Cloud Build
+# Nom du déclencheur
+name: deploy-to-cloud-run
+description: "Déclencheur pour déployer CVmatcher sur Cloud Run depuis la branche main"
+
+# Source (GitHub)
+github:
+  owner: 'HugoF1234'
+  name: 'CVmatcher'
+  push:
+    branch: '^main$'
+
+# Configuration de la compilation
+# Ici, on indique simplement qu'il faut utiliser le Dockerfile à la racine
+filename: 'Dockerfile'
+
+# Compte de service à utiliser
+serviceAccount: 'projects/cvmatcher-v2/serviceAccounts/cvmatcher2@cvmatcher-v2.iam.gserviceaccount.com'
+
+# Configuration de la journalisation (le paramètre qui résout notre problème)
+# En YAML, le nom du paramètre est 'loggingMode'
+loggingMode: CLOUD_LOGGING_ONLY
