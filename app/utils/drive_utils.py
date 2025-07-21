@@ -1,5 +1,6 @@
 import os.path
 import io
+import json
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,78 +10,58 @@ from googleapiclient.http import MediaIoBaseDownload
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 def connect_to_drive():
-    """Connexion à Google Drive - Version qui marche sur Render"""
+    """Connexion à Google Drive - Version qui marche sur Render/GCP et en local"""
     creds = None
-    
-    # Chemins possibles pour le token
-    possible_token_paths = [
-        'token.json',
-        'credentials/token.json',
-        os.path.join(os.path.dirname(__file__), '..', '..', 'token.json'),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'credentials', 'token.json')
-    ]
-    
-    # Chercher le fichier token.json
-    token_path = None
-    for path in possible_token_paths:
-        if os.path.exists(path):
-            token_path = path
-            print(f"📁 Token trouvé : {token_path}")
-            break
-    
-    if token_path:
+    token_json_str = os.environ.get('GOOGLE_TOKEN_JSON')
+
+    if token_json_str:
+        # Priorité 1: Charger depuis la variable d'environnement (pour GCP/Render)
         try:
-            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
-            print("📖 Credentials chargés depuis le token")
+            token_info = json.loads(token_json_str)
+            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+            print("📖 Credentials chargés depuis la variable d'environnement GOOGLE_TOKEN_JSON")
         except Exception as e:
-            print(f"❌ Erreur lecture token : {e}")
-            creds = None
+            print(f"❌ Erreur de chargement des credentials depuis l'environnement : {e}")
+            # Si l'env var est mal formée, on ne continue pas pour éviter des erreurs ambiguës
+            return None
     else:
-        print("⚠️ Aucun token trouvé")
-    
-    # Vérifier et rafraîchir si nécessaire
-    if creds and creds.expired and creds.refresh_token:
+        # Priorité 2: Charger depuis le fichier token.json (pour le dev local)
+        possible_token_paths = [
+            'token.json',
+            'credentials/token.json',
+        ]
+        token_path = None
+        for path in possible_token_paths:
+            if os.path.exists(path):
+                token_path = path
+                print(f"📁 Token trouvé pour le développement local : {token_path}")
+                break
+        
+        if token_path:
+            try:
+                creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+                print("📖 Credentials chargés depuis le fichier token.json local")
+            except Exception as e:
+                print(f"❌ Erreur lecture token local : {e}")
+
+    # Si on n'a toujours pas de credentials, c'est une erreur.
+    if not creds:
+        raise Exception(
+            "❌ Credentials Google Drive non trouvés. "
+            "Assurez-vous que le secret GOOGLE_TOKEN_JSON est défini sur le serveur "
+            "ou que le fichier token.json est présent localement."
+        )
+
+    # Vérifier et rafraîchir si nécessaire (commun aux deux méthodes)
+    if creds.expired and creds.refresh_token:
         print("🔄 Rafraîchissement du token...")
         try:
+            from google.auth.transport.requests import Request
             creds.refresh(Request())
             print("✅ Token rafraîchi avec succès")
         except Exception as e:
-            print(f"❌ Erreur rafraîchissement : {e}")
-            creds = None
-    
-    # Si pas de credentials valides
-    if not creds or not creds.valid:
-        print("❌ Credentials non valides ou expirés")
-        
-        # Chercher credentials.json (avec la faute de frappe aussi)
-        possible_creds_paths = [
-            'credentials.json',
-            'creditial.json',  # Votre fichier avec la faute de frappe
-            'credentials/credentials.json',
-            'credentials/creditial.json',
-            os.path.join(os.path.dirname(__file__), '..', '..', 'credentials', 'credentials.json'),
-            os.path.join(os.path.dirname(__file__), '..', '..', 'credentials', 'creditial.json')
-        ]
-        
-        creds_path = None
-        for path in possible_creds_paths:
-            if os.path.exists(path):
-                creds_path = path
-                print(f"📁 Credentials trouvé : {creds_path}")
-                break
-        
-        if not creds_path:
-            raise FileNotFoundError(
-                "❌ Fichier credentials.json non trouvé. "
-                "Assurez-vous qu'il est présent dans le projet."
-            )
-        
-        # Sur Render, on ne peut pas faire l'auth interactive
-        raise Exception(
-            "❌ Token Google Drive expiré. "
-            "Régénérez le token localement avec le script de test, "
-            "puis redéployez avec le nouveau token.json"
-        )
+            print(f"❌ Erreur de rafraîchissement du token : {e}")
+            # On ne bloque pas ici, on laisse la suite décider si les creds sont valides
     
     return build('drive', 'v3', credentials=creds)
 
