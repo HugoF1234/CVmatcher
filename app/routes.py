@@ -728,3 +728,13 @@ def health_check():
     except Exception as e:
         logger.error(f"❌ Erreur health check: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+from flask import Blueprint
+
+bp = Blueprint('main', __name__)
+
+@bp.route("/")
+def index():
+    return "CV Matcher is running!"
+
