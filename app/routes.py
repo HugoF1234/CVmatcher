@@ -336,23 +336,24 @@ def home():
     return render_template("index.html", results=results)
 
 def run_update_background():
-    """Lance la mise à jour en arrière-plan"""
     try:
         from app.watcher import run_watch
+        from app.utils.vectorize import update_faiss_index, load_faiss_from_mongodb
+
         logger.info("🔄 Début de la mise à jour des CVs en arrière-plan")
-        success = run_watch()
-        
+        success = run_watch()  # Ajoute les nouveaux CVs via enrich_db
+
         if success:
+            logger.info("🔄 Régénération de l'index FAISS après ajout des nouveaux CVs")
+            update_faiss_index()  # <-- Ajoute cette ligne pour revectoriser toute la BDD
+
             global index, id_mapping
-            # Recharger l'index FAISS depuis MongoDB
-            from app.utils.vectorize import load_faiss_from_mongodb
             index, id_mapping = load_faiss_from_mongodb()
             logger.info("🔄 Index FAISS rechargé après mise à jour")
-        
+
         logger.info("✅ Mise à jour terminée")
     except Exception as e:
         logger.error(f"❌ Erreur mise à jour CVs en arrière-plan: {e}")
-
 
 # Ajouter cette route dans app/routes.py
 
