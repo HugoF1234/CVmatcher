@@ -20,8 +20,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # --- Optimisation: Pré-télécharger le modèle et configurer le cache ---
 # On définit une variable d'environnement pour que le cache soit dans un dossier accessible en écriture
 ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
-# On pré-télécharge le bon modèle utilisé par le code
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+# CORRECTION ICI : Changer le modèle à 'paraphrase-MiniLM-L3-v2' pour correspondre à votre code
+# De plus, s'assurer que le modèle est bien inclus dans le chemin de l'application
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('paraphrase-MiniLM-L3-v2')"
 
 # Copier le reste du code de l'application
 COPY . .
@@ -38,5 +39,6 @@ USER app
 EXPOSE 8080
 
 # Commande pour lancer l'application avec Gunicorn
-# Utilise la variable $PORT fournie par Cloud Run
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+# CORRECTION ICI : Retirer les arguments --workers et --threads pour que gunicorn.conf.py soit utilisé
+# Le fichier gunicorn.conf.py est déjà bien configuré avec worker_class = "sync" et workers = 1
+CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py main:app
