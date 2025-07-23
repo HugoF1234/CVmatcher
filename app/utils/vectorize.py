@@ -351,3 +351,133 @@ def clean_faiss_index():
     except Exception as e:
         logger.error(f"❌ Erreur nettoyage index: {e}")
         return False
+
+def add_cv_to_faiss_index(cv):
+    """Ajoute un CV à l'index FAISS de façon incrémentale (sans tout revectoriser)"""
+    import base64
+    import pickle
+    import numpy as np
+    import faiss
+    import tempfile
+    import os
+    from config import get_mongo_client, DB_NAME, COLLECTION_NAME
+    logger = logging.getLogger(__name__)
+
+    # Charger l'index et le mapping existants
+    index, id_mapping = load_faiss_from_mongodb()
+    if index is None or id_mapping is None:
+        logger.error("❌ Impossible de charger l'index FAISS existant pour ajout incrémental")
+        return False
+
+    # Construire le texte à vectoriser (reprend la logique de update_faiss_index)
+    text_parts = []
+    nom = cv.get("nom", "")
+    if nom and isinstance(nom, str):
+        text_parts.append(nom)
+    competences = cv.get("competences", [])
+    if competences and isinstance(competences, list):
+        comp_text = " ".join([str(c) for c in competences if c])
+        if comp_text.strip():
+            text_parts.append(comp_text)
+    biographie = cv.get("biographie", "")
+    if biographie and isinstance(biographie, str) and biographie.strip():
+        text_parts.append(biographie)
+    secteur = cv.get("secteur", [])
+    if secteur:
+        if isinstance(secteur, list):
+            secteur_text = " ".join([str(s) for s in secteur if s])
+        else:
+            secteur_text = str(secteur)
+        if secteur_text.strip():
+            text_parts.append(secteur_text)
+    experiences = cv.get("experiences", [])
+    if experiences and isinstance(experiences, list):
+        for exp in experiences[:3]:
+            if isinstance(exp, dict):
+                exp_parts = []
+                titre = exp.get("titre", "")
+                if titre:
+                    exp_parts.append(str(titre))
+                entreprise = exp.get("entreprise", "")
+                if entreprise:
+                    exp_parts.append(str(entreprise))
+                description = exp.get("description", "")
+                if description and len(str(description)) > 10:
+                    exp_parts.append(str(description)[:500])
+                if exp_parts:
+                    text_parts.append(" ".join(exp_parts))
+    formations = cv.get("formations", [])
+    if formations and isinstance(formations, list):
+        for form in formations[:2]:
+            if isinstance(form, dict):
+                form_parts = []
+                diplome = form.get("diplome", "")
+                if diplome:
+                    form_parts.append(str(diplome))
+                etablissement = form.get("etablissement", "")
+                if etablissement:
+                    form_parts.append(str(etablissement))
+                if form_parts:
+                    text_parts.append(" ".join(form_parts))
+    if not text_parts:
+        logger.warning(f"⚠️ Aucun texte extractible pour {cv.get('nom', 'CV sans nom')}")
+        return False
+    combined_text = " ".join(text_parts)
+    combined_text = " ".join(combined_text.split())
+    combined_text = combined_text[:2000]
+    if len(combined_text) <= 10:
+        logger.warning(f"⚠️ Texte trop court pour {cv.get('nom', 'CV sans nom')}")
+        return False
+    # Vectorisation
+    vector = model.encode(combined_text)
+    norm = np.linalg.norm(vector)
+    if norm > 0:
+        vector = vector / norm
+    else:
+        logger.warning(f"⚠️ Vecteur nul pour {cv.get('nom', 'CV sans nom')}")
+        return False
+    vector = np.array([vector], dtype=np.float32)
+    # Ajout au FAISS index
+    index.add(vector)
+    id_mapping.append(str(cv["_id"]))
+    # Sauvegarde dans MongoDB
+    try:
+        from config import get_mongo_client
+        client = get_mongo_client()
+        if not client:
+            logger.error("❌ Impossible de se connecter à MongoDB pour sauvegarde incrémentale")
+            return False
+        db = client[DB_NAME]
+        index_collection = db["faiss_index"]
+        # Sérialisation FAISS
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            temp_path = tmp_file.name
+        try:
+            faiss.write_index(index, temp_path)
+            with open(temp_path, 'rb') as f:
+                index_bytes = f.read()
+            index_b64 = base64.b64encode(index_bytes).decode('utf-8')
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        # Sérialisation mapping
+        mapping_bytes = pickle.dumps(id_mapping)
+        mapping_b64 = base64.b64encode(mapping_bytes).decode('utf-8')
+        # Mise à jour du document en base
+        index_collection.update_one(
+            {"_id": "faiss_data"},
+            {"$set": {
+                "index": index_b64,
+                "id_mapping": mapping_b64,
+                "vector_count": len(id_mapping),
+                "dimension": index.d,
+                "model_name": "all-MiniLM-L6-v2",
+                "index_type": "IndexFlatIP"
+            }},
+            upsert=True
+        )
+        logger.info(f"✅ Nouveau CV ajouté à l'index FAISS (total: {len(id_mapping)})")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Erreur sauvegarde incrémentale FAISS: {e}")
+        return False
