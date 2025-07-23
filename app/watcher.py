@@ -2,7 +2,7 @@ import os
 import logging
 import time
 from pymongo import MongoClient
-from config import DB_NAME
+from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ def run_watch(batch_size=3, max_time_minutes=8):
         # Import des modules nécessaires
         from app.utils.drive_utils import connect_to_drive, list_pdfs, download_file
         from app.utils.enrich_db import process_and_insert_cv, get_mongo_collection
-        from app.utils.vectorize import update_faiss_index
+        from app.utils.vectorize import update_faiss_index, sync_faiss_with_db
         
         # Connexion MongoDB pour tracker les CVs vus
         from config import get_mongo_client
@@ -28,6 +28,7 @@ def run_watch(batch_size=3, max_time_minutes=8):
             return False
             
         db = client[DB_NAME]
+        collection = db[COLLECTION_NAME]
         seen_collection = db["seen_cvs"]
 
         def get_seen():
@@ -52,11 +53,11 @@ def run_watch(batch_size=3, max_time_minutes=8):
                 logger.error(f"Erreur sauvegarde seen files: {e}")
 
         # Vérifier la collection MongoDB
-        collection = get_mongo_collection()
         if collection is None:
             logger.error("❌ Collection MongoDB non disponible")
             return False
-            
+        # Optimisation : réutiliser la collection MongoDB pour tous les traitements
+        
         initial_count = collection.count_documents({})
         logger.info(f"📊 CVs en base au départ: {initial_count}")
         
@@ -134,7 +135,7 @@ def run_watch(batch_size=3, max_time_minutes=8):
                     # Traitement avec monitoring du temps
                     processing_start = time.time()
                     logger.info(f"🔄 Traitement...")
-                    success = process_and_insert_cv(filename)
+                    success = process_and_insert_cv(filename, collection=collection)
                     processing_time = time.time() - processing_start
                     
                     if success:
