@@ -349,6 +349,9 @@ def run_update_background():
             global index, id_mapping
             index, id_mapping = load_faiss_from_mongodb()
             logger.info("🔄 Index FAISS rechargé après mise à jour")
+            # Synchronisation FAISS/BDD pour rattraper les éventuels manquants
+            from app.utils.vectorize import sync_faiss_with_db
+            sync_faiss_with_db()
 
         logger.info("✅ Mise à jour terminée")
     except Exception as e:
