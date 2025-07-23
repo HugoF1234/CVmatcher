@@ -338,15 +338,14 @@ def home():
 def run_update_background():
     try:
         from app.watcher import run_watch
-        from app.utils.vectorize import update_faiss_index, load_faiss_from_mongodb
+        from app.utils.vectorize import load_faiss_from_mongodb
 
         logger.info("🔄 Début de la mise à jour des CVs en arrière-plan")
         success = run_watch()  # Ajoute les nouveaux CVs via enrich_db
 
         if success:
-            logger.info("🔄 Régénération de l'index FAISS après ajout des nouveaux CVs")
-            update_faiss_index()  # <-- Ajoute cette ligne pour revectoriser toute la BDD
-
+            # logger.info("🔄 Régénération de l'index FAISS après ajout des nouveaux CVs")
+            # update_faiss_index()  # <-- Désormais inutile, car ajout incrémental déjà fait
             global index, id_mapping
             index, id_mapping = load_faiss_from_mongodb()
             logger.info("🔄 Index FAISS rechargé après mise à jour")
