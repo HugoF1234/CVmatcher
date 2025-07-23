@@ -31,7 +31,7 @@ def get_mongo_client():
         client = MongoClient(
             MONGO_URI, 
             server_api=ServerApi('1'),
-            serverSelectionTimeoutMS=10000,
+            serverSelectionTimeoutMS=30000,
             socketTimeoutMS=20000,
             connectTimeoutMS=20000
         )
