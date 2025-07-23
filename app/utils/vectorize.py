@@ -481,3 +481,27 @@ def add_cv_to_faiss_index(cv):
     except Exception as e:
         logger.error(f"❌ Erreur sauvegarde incrémentale FAISS: {e}")
         return False
+
+def sync_faiss_with_db():
+    """
+    Vérifie la cohérence entre la BDD et l'index FAISS.
+    Ajoute à FAISS tout CV présent en BDD mais absent du mapping.
+    """
+    from config import get_mongo_client, DB_NAME, COLLECTION_NAME
+    client = get_mongo_client()
+    if not client:
+        logger.error("❌ Impossible de se connecter à MongoDB pour la synchronisation FAISS")
+        return False
+    db = client[DB_NAME]
+    collection = db[COLLECTION_NAME]
+    cvs = list(collection.find({}))
+    index, id_mapping = load_faiss_from_mongodb()
+    id_mapping_set = set(id_mapping)
+    added = 0
+    for cv in cvs:
+        if str(cv['_id']) not in id_mapping_set:
+            logger.warning(f"🟡 CV manquant dans FAISS: {cv.get('nom', 'inconnu')} ({cv['_id']})")
+            add_cv_to_faiss_index(cv)
+            added += 1
+    logger.info(f"✅ Synchronisation FAISS terminée. {added} CVs ajoutés à FAISS.")
+    return True
