@@ -111,24 +111,33 @@
     <div class="cv-section cv-info" style="margin-bottom: 32px;">
       <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Email :</strong> {{ cv.email }}</p>
       <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Secteur :</strong> {{ cv.secteur }}</p>
-      <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Langues :</strong> 
-        {% for lang in cv.langues %}
-          <span style="background: #e9ecef; color: #2d3a4a; border-radius: 12px; padding: 5px 14px; margin-right: 6px; font-size: 1rem;">{{ lang }}</span>
-        {% endfor %}
+      <p style="font-size: 1.08rem; color: #6e90a0; margin-bottom: 8px;"><strong>Langues :</strong>
+        <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+          {% for lang in cv.langues %}
+            <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.98rem; font-weight: 400; border: 1px solid #e3e7ea;">
+              {{ lang }}
+            </span>
+          {% endfor %}
+        </span>
       </p>
-      <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Compétences :</strong> 
-        {% for comp in cv.competences %}
-          <span style="background: #f0f7fa; color: #6e90a0; border-radius: 12px; padding: 5px 14px; margin-right: 6px; font-size: 1rem;">{{ comp }}</span>
-        {% endfor %}
+      <p style="font-size: 1.08rem; color: #6e90a0; margin-bottom: 8px;"><strong>Compétences :</strong>
+        <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+          {% for comp in cv.competences %}
+            <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.98rem; font-weight: 400; border: 1px solid #e3e7ea;">
+              {{ comp }}
+            </span>
+          {% endfor %}
+        </span>
       </p>
     </div>
 
     {% if cv.nomdupdf %}
-    <div style="margin: 32px 0 40px 0; text-align: center;">
-      <a href="{{ url_for('download_pdf', nomdupdf=cv.nomdupdf) }}" class="btn btn-primary" style="border-radius: 24px; font-weight: 600; font-size: 1.1rem; padding: 12px 32px; box-shadow: 0 2px 8px rgba(245,122,103,0.08); background: #f57a67; border: none;">
-        <i class="fas fa-download"></i> Télécharger le PDF
+    <div style="margin: 28px 0 36px 0; text-align: center;">
+      <a href="{{ url_for('download_pdf', nomdupdf=cv.nomdupdf) }}"
+         style="display: inline-block; background: #e9ecef; color: #2d3a4a; border-radius: 18px; font-weight: 500; font-size: 1rem; padding: 8px 22px; text-decoration: none; border: 1px solid #d1d5db; transition: background 0.2s;">
+        <i class="fas fa-download" style="margin-right: 6px;"></i> Télécharger le PDF
       </a>
-      <div class="small text-muted" style="margin-top: 8px; font-size: 1rem;">{{ cv.nomdupdf }}</div>
+      <div class="small text-muted" style="margin-top: 6px; font-size: 0.98rem;">{{ cv.nomdupdf }}</div>
     </div>
     {% endif %}
 
