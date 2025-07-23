@@ -8,7 +8,7 @@ worker_class = "sync"
 worker_connections = 1000
 
 # Timeouts optimisés
-timeout = 60  # 60 secondes pour les requêtes
+timeout = 120  # 60 secondes pour les requêtes
 keepalive = 5
 max_requests = 500
 max_requests_jitter = 100
