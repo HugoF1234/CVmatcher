@@ -139,10 +139,10 @@ def run_watch(batch_size=3, max_time_minutes=8):
                     
                     if success:
                         logger.info(f"✅ {filename} traité en {processing_time:.1f}s")
-                        new_seen.add(pdf_id)
+                        new_seen.add(pdf_id)  # Ajout à seen uniquement si insertion réussie
                         processed_count += 1
                     else:
-                        logger.warning(f"⚠️ Échec traitement {filename}")
+                        logger.warning(f"⚠️ Échec traitement {filename} (non ajouté à seen_cvs)")
                         error_count += 1
                     
                     # Nettoyage immédiat
