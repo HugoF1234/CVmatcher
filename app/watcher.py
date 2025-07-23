@@ -187,16 +187,17 @@ def run_watch(batch_size=3, max_time_minutes=8):
         logger.info(f"   - CVs en base: {initial_count} → {final_count} (+{added_count})")
         
         # Mettre à jour l'index FAISS si de nouveaux CVs ont été ajoutés
-        if processed_count > 0:
-            logger.info("🔄 Mise à jour index FAISS...")
-            try:
-                faiss_success = update_faiss_index()
-                if faiss_success:
-                    logger.info("✅ Index FAISS mis à jour")
-                else:
-                    logger.warning("⚠️ Erreur FAISS")
-            except Exception as e:
-                logger.error(f"❌ Erreur FAISS: {e}")
+        # if processed_count > 0:
+        #     logger.info("🔄 Mise à jour index FAISS...")
+        #     try:
+        #         faiss_success = update_faiss_index()
+        #         if faiss_success:
+        #             logger.info("✅ Index FAISS mis à jour")
+        #         else:
+        #             logger.warning("⚠️ Erreur FAISS")
+        #     except Exception as e:
+        #         logger.error(f"❌ Erreur FAISS: {e}")
+        # L'ajout incrémental FAISS est déjà fait dans enrich_db, inutile de revectoriser toute la base ici.
         
         # Indiquer s'il reste des fichiers à traiter
         remaining = len(pdfs_to_process) - processed_count - error_count
