@@ -740,3 +740,30 @@ bp = Blueprint('main', __name__)
 @bp.route("/")
 def index():
     return "CV Matcher is running!"
+
+
+from flask import send_file, abort
+import os
+
+@app.route("/download/<nomdupdf>")
+def download_pdf(nomdupdf):
+    # Chemin local temporaire où tu télécharges le PDF
+    local_path = f"/tmp/{nomdupdf}"
+    if not os.path.exists(local_path):
+        # Télécharger depuis Google Drive si besoin
+        from app.utils.drive_utils import connect_to_drive, download_file
+        service = connect_to_drive()
+        # Il faut retrouver l'ID du fichier sur le Drive à partir du nom
+        # (à adapter selon ta logique)
+        # Supposons que tu as une fonction get_file_id_by_name(service, nomdupdf)
+        from app.utils.drive_utils import list_pdfs
+        folder_id = "16CpxlBPbm8ZMRBH-B7tj5cmn4h3bXCbt"
+        pdfs = list_pdfs(service, folder_id)
+        file_id = next((pdf['id'] for pdf in pdfs if pdf['name'] == nomdupdf), None)
+        if not file_id:
+            abort(404, "PDF non trouvé sur Google Drive")
+        download_file(service, file_id, local_path)
+    if os.path.exists(local_path):
+        return send_file(local_path, as_attachment=True)
+    else:
+        abort(404, "PDF non trouvé")
