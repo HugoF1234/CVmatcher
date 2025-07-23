@@ -45,7 +45,7 @@ def list_pdfs(service, folder_id):
     from app.utils.drive_utils import list_pdfs as list_drive_pdfs
     return list_drive_pdfs(service, folder_id)
     
-def process_and_insert_cv(filename):
+def process_and_insert_cv(filename, collection=None):
     """Traite un CV et l'insère en base de données"""
     try:
         print(f"🔄 Traitement de {filename}...")
@@ -66,7 +66,7 @@ def process_and_insert_cv(filename):
         enriched_data = enrich_with_bio_and_sector(extracted_data)
         
         # Insertion en base
-        success = insert_into_mongodb(enriched_data)
+        success = insert_into_mongodb(enriched_data, collection=collection)
         
         if success:
             print(f"✅ CV {filename} traité et inséré avec succès")
@@ -226,10 +226,11 @@ def enrich_with_bio_and_sector(cv_data):
         return cv_data
 
 # === INSERTION DANS MONGODB ===
-def insert_into_mongodb(data):
+def insert_into_mongodb(data, collection=None):
     """Insère les données dans MongoDB"""
     try:
-        collection = get_mongo_collection()
+        if collection is None:
+            collection = get_mongo_collection()
         if collection is None:
             return False
             
