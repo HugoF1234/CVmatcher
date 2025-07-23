@@ -33,18 +33,14 @@ def update_faiss_index():
         collection = db[COLLECTION_NAME]
         index_collection = db["faiss_index"]
         
-        cvs = list(collection.find({}))
-        logger.info(f"📊 Traitement de {len(cvs)} CVs pour indexation")
-
-        if not cvs:
-            logger.warning("⚠️ Aucun CV trouvé pour l'indexation")
-            return False
-
+        # cvs = list(collection.find({}))
+        # logger.info(f"📊 Traitement de {len(cvs)} CVs pour indexation")
+        logger.info("📊 Début du traitement des CVs pour indexation (streaming)")
         vectors = []
         id_mapping = []
         processed_count = 0
 
-        for cv in cvs:
+        for cv in collection.find({}):
             try:
                 # Construire le texte à vectoriser
                 text_parts = []
