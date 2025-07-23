@@ -337,21 +337,20 @@ def home():
 
 def run_update_background():
     try:
+        from config import get_mongo_client
         from app.watcher import run_watch
-        from app.utils.vectorize import load_faiss_from_mongodb
+        from app.utils.vectorize import load_faiss_from_mongodb, sync_faiss_with_db
 
+        client = get_mongo_client()
         logger.info("🔄 Début de la mise à jour des CVs en arrière-plan")
         success = run_watch()  # Ajoute les nouveaux CVs via enrich_db
 
         if success:
-            # logger.info("🔄 Régénération de l'index FAISS après ajout des nouveaux CVs")
-            # update_faiss_index()  # <-- Désormais inutile, car ajout incrémental déjà fait
             global index, id_mapping
-            index, id_mapping = load_faiss_from_mongodb()
+            # Utilise le même client pour toutes les opérations FAISS
+            sync_faiss_with_db(client=client)
+            index, id_mapping = load_faiss_from_mongodb(client=client)
             logger.info("🔄 Index FAISS rechargé après mise à jour")
-            # Synchronisation FAISS/BDD pour rattraper les éventuels manquants
-            from app.utils.vectorize import sync_faiss_with_db
-            sync_faiss_with_db()
 
         logger.info("✅ Mise à jour terminée")
     except Exception as e:
@@ -740,7 +739,6 @@ bp = Blueprint('main', __name__)
 @bp.route("/")
 def index():
     return "CV Matcher is running!"
-
 
 from flask import send_file, abort
 import os
