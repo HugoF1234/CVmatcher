@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Charger le modèle UNE SEULE FOIS au niveau du module
 model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
 
-def update_faiss_index():
+def update_faiss_index(client=None):
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
     try:
         logger.info("🔄 Début création index FAISS")
@@ -22,9 +22,10 @@ def update_faiss_index():
         # Utiliser le modèle global déjà chargé
         # model = SentenceTransformer("all-MiniLM-L6-v2")  # SUPPRIMÉ
         
-        from config import get_mongo_client
-        client = get_mongo_client()
-        
+        if client is None:
+            from config import get_mongo_client
+            client = get_mongo_client()
+            
         if not client:
             logger.error("❌ Impossible de se connecter à MongoDB")
             return False
@@ -216,12 +217,12 @@ def update_faiss_index():
         logger.error(f"Stack trace: {traceback.format_exc()}")
         return False
 
-def load_faiss_from_mongodb():
+def load_faiss_from_mongodb(client=None):
     """Charge l'index FAISS depuis MongoDB"""
     try:
-        from config import get_mongo_client
-        client = get_mongo_client()
-        
+        if client is None:
+            from config import get_mongo_client
+            client = get_mongo_client()
         if not client:
             logger.error("❌ Impossible de se connecter à MongoDB pour FAISS")
             return None, []
@@ -321,12 +322,12 @@ def search_similar_cvs(query_text, top_k=5):
         logger.error(f"Stack trace: {traceback.format_exc()}")
         return []
 
-def clean_faiss_index():
+def clean_faiss_index(client=None):
     """Nettoie l'index FAISS en base (utilitaire de debug)"""
     try:
-        from config import get_mongo_client
-        client = get_mongo_client()
-        
+        if client is None:
+            from config import get_mongo_client
+            client = get_mongo_client()
         if not client:
             logger.error("❌ Impossible de se connecter à MongoDB")
             return False
@@ -478,20 +479,22 @@ def add_cv_to_faiss_index(cv):
         logger.error(f"❌ Erreur sauvegarde incrémentale FAISS: {e}")
         return False
 
-def sync_faiss_with_db():
+def sync_faiss_with_db(client=None):
     """
     Vérifie la cohérence entre la BDD et l'index FAISS.
     Ajoute à FAISS tout CV présent en BDD mais absent du mapping.
     """
-    from config import get_mongo_client, DB_NAME, COLLECTION_NAME
-    client = get_mongo_client()
+    from config import DB_NAME, COLLECTION_NAME
+    if client is None:
+        from config import get_mongo_client
+        client = get_mongo_client()
     if not client:
         logger.error("❌ Impossible de se connecter à MongoDB pour la synchronisation FAISS")
         return False
     db = client[DB_NAME]
     collection = db[COLLECTION_NAME]
     cvs = list(collection.find({}))
-    index, id_mapping = load_faiss_from_mongodb()
+    index, id_mapping = load_faiss_from_mongodb(client=client)
     id_mapping_set = set(id_mapping)
     added = 0
     for cv in cvs:
