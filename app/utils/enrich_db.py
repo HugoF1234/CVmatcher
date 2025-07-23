@@ -70,6 +70,16 @@ def process_and_insert_cv(filename):
         
         if success:
             print(f"✅ CV {filename} traité et inséré avec succès")
+            # Ajout incrémental à l'index FAISS
+            try:
+                from app.utils.vectorize import add_cv_to_faiss_index
+                faiss_success = add_cv_to_faiss_index(enriched_data)
+                if faiss_success:
+                    print(f"✅ Ajout incrémental FAISS réussi pour {enriched_data.get('nom', filename)}")
+                else:
+                    print(f"⚠️ Ajout incrémental FAISS échoué pour {enriched_data.get('nom', filename)}")
+            except Exception as e:
+                print(f"❌ Erreur ajout incrémental FAISS: {e}")
         else:
             print(f"❌ Échec insertion {filename}")
             
