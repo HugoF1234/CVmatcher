@@ -302,59 +302,48 @@
   </nav>
 
   <div class="container">
-    <div class="likes-header">
-      <i class="fas fa-heart"></i>
-      <h1>Profils favoris</h1>
-      {% if results %}
-        <span class="likes-count">{{ results|length }}</span>
-      {% endif %}
+    {% extends "index.html" %}
+    {% block content %}
+    <div class="container" style="margin-top: 40px; margin-bottom: 40px;">
+        {% if session.prompt %}
+        <div style="background: #f8fafc; border-left: 4px solid #f57a67; padding: 14px 24px; border-radius: 10px; margin-bottom: 32px; color: #6e90a0; font-size: 1.08rem;">
+            <i class="fas fa-search"></i> Dernière recherche : <strong>{{ session.prompt }}</strong>
+        </div>
+        {% endif %}
+        <h2 style="text-align:center; color: var(--primary); font-weight: 700; margin-bottom: 32px;">Vos profils favoris</h2>
+        {% if results %}
+            <div style="display: flex; flex-wrap: wrap; gap: 32px; justify-content: center;">
+            {% for cv in results %}
+                <div class="cv-card" style="width: 350px; background: var(--white); border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 28px 22px; margin-bottom: 18px; display: flex; flex-direction: column; align-items: flex-start; position: relative;">
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 10px;">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" style="height: 48px; width: 48px; border-radius: 50%; background: #f8fafc; object-fit: cover;">
+                        <div>
+                            <div style="font-size: 1.2rem; font-weight: 700; color: var(--dark-text);">{{ cv.nom }}</div>
+                            {% if cv.secteur %}
+                            <div style="font-size: 0.98rem; color: #6e90a0;">{{ cv.secteur | join(', ') }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if cv.score %}
+                    <div style="margin-bottom: 8px; color: var(--primary); font-weight: 600; font-size: 1.05rem;">Score : {{ cv.score }}/100</div>
+                    {% endif %}
+                    <div style="margin-bottom: 10px;">
+                        {% for comp in cv.competences[:8] %}
+                        <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.97rem; font-weight: 400; border: 1px solid #e3e7ea; margin-right: 4px; margin-bottom: 3px; display: inline-block;">{{ comp }}</span>
+                        {% endfor %}
+                    </div>
+                    <a href="{{ url_for('show_cv_detail', cv_id=cv._id) }}" class="btn btn-primary" style="border-radius: 18px; font-size: 1rem; font-weight: 500; margin-top: 10px; background: #f57a67; color: white; text-decoration: none; padding: 8px 20px;">Voir le profil complet</a>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-results" style="text-align: center; color: #888; margin-top: 60px;">
+                <i class="fas fa-heart-broken" style="font-size: 2.5rem; color: #f57a67; margin-bottom: 12px;"></i>
+                <p>Aucun profil favori pour le moment.</p>
+            </div>
+        {% endif %}
     </div>
-
-    {% if results %}
-      {% for cv in results %}
-        <div class="cv-card">
-          <div class="cv-header">
-            <div class="cv-name">{{ cv.nom }}</div>
-            <div class="cv-actions">
-              <a href="/toggle_like/{{ cv._id }}" class="remove-btn">
-                <i class="fas fa-heart-broken"></i> Retirer des favoris
-              </a>
-            </div>
-          </div>
-          
-          <div class="cv-details">
-            <div class="detail-item">
-              <span class="detail-label">Secteur</span>
-              <div class="detail-value">{{ cv.secteur }}</div>
-            </div>
-            
-            {% if cv.raison %}
-            <div class="detail-item">
-              <span class="detail-label">Raison de sélection</span>
-              <div class="detail-value">{{ cv.raison }}</div>
-            </div>
-            {% endif %}
-            
-            <div class="experience">
-              <span class="detail-label">Expérience récente</span>
-              <div class="detail-value">{{ cv.experiences[0].titre }} chez {{ cv.experiences[0].entreprise }}</div>
-            </div>
-          </div>
-        </div>
-      {% endfor %}
-    {% else %}
-      <div class="no-likes">
-        <i class="far fa-heart"></i>
-        <p>Vous n'avez pas encore de profils favoris.</p>
-        <p>Effectuez une recherche et ajoutez des profils à vos favoris pour les retrouver ici.</p>
-        
-        <div class="back-to-search">
-          <a href="/" class="search-btn">
-            <i class="fas fa-search"></i> Aller à la recherche
-          </a>
-        </div>
-      </div>
-    {% endif %}
+    {% endblock %}
   </div>
 </body>
 </html>
