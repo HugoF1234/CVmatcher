@@ -428,7 +428,7 @@
 
     <div class="search-box">
       <form method="post" id="search-form">
-        <input type="text" name="prompt" placeholder="Ex: développeur sur Paris, spécialiste marketing digital..." required>
+        <input type="text" name="prompt" placeholder="Ex: développeur sur Paris, spécialiste marketing digital..." value="{{ prompt or '' }}" required>
         <button type="submit" id="search-button">
           <i class="fas fa-search"></i>
           Rechercher
