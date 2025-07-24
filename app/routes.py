@@ -421,6 +421,7 @@ def run_diagnostic():
     """Route de diagnostic complète du système d'embedding"""
     try:
         import json
+        import os
         from sentence_transformers import SentenceTransformer
         import numpy as np
         
@@ -458,7 +459,9 @@ def run_diagnostic():
         
         # Test 2: SentenceTransformer
         try:
-            model = SentenceTransformer("all-MiniLM-L6-v2")
+            import os
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer("all-MiniLM-L6-v2", use_auth_token=os.environ.get("HF_TOKEN"))
             test_text = "développeur Python avec 5 ans d'expérience"
             vector = model.encode(test_text)
             
