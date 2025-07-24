@@ -58,7 +58,7 @@
     <div style="display: flex; align-items: center;">
       <h1>{{ cv.nom }}</h1>
       <a href="/toggle_like/{{ cv._id }}" class="toggle-like">
-        <i class="fas fa-heart"></i>{% if liked %} Retirer{% else %} Ajouter{% endif %}
+        <i class="fas fa-heart"></i>{% if liked %} Retirer{% endif %}
       </a>
     </div>
 
@@ -72,13 +72,7 @@
           {% for lang in cv.langues %}
             <span class="tag">{{ lang }}</span>
           {% endfor %}
-        </div>
-        <p style="margin-top:16px;"><strong>Compétences :</strong></p>
-        <div class="tags">
-          {% for comp in cv.competences %}
-            <span class="tag">{{ comp }}</span>
-          {% endfor %}
-        </div>
+        
       </div>
     </div>
 
