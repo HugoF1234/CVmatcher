@@ -181,6 +181,7 @@ def home():
     global index, id_mapping, collection, gemini_model
     
     results = []
+    prompt = ""
     if "likes" not in session:
         session["likes"] = []
 
@@ -327,13 +328,27 @@ def home():
                     results.append(cv)
 
             logger.info(f"🎯 Recherche terminée: {len(results)} résultats pour '{query}'")
+            # Sauvegarde la recherche et les résultats dans la session
+            session["prompt"] = query
+            session["last_results"] = [str(cv["_id"]) for cv in cv_list]
+            prompt = query
 
         except Exception as e:
             logger.error(f"❌ Erreur dans la recherche: {e}")
             return render_template("index.html", results=[], 
                                  error="Erreur lors de la recherche. Veuillez réessayer.")
 
-    return render_template("index.html", results=results)
+    else:
+        # Si on revient sur la page d'accueil, pré-remplir avec la dernière recherche
+        if "prompt" in session and "last_results" in session:
+            prompt = session["prompt"]
+            results = []
+            for cid in session["last_results"]:
+                cv = collection.find_one({"_id": ObjectId(cid)})
+                if cv:
+                    results.append(cv)
+
+    return render_template("index.html", results=results, prompt=prompt)
 
 def run_update_background():
     try:
