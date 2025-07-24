@@ -375,7 +375,7 @@
 </head>
 <body>
   <!-- Overlay PIN -->
-  <div id="overlay">
+  <div id="overlay" style="display:none;">
     <div class="pin-dots">
       <div class="dot"></div>
       <div class="dot"></div>
@@ -561,7 +561,7 @@
     }
 
     // --- PIN Overlay JS ---
-    const SECRET = '1320';
+    const SECRET = '2013';
     let pin = '';
     const overlay = document.getElementById('overlay');
     function updateDots() {
@@ -579,13 +579,20 @@
     }
     function enter() {
       if (pin === SECRET) {
-        overlay.remove();
+        localStorage.setItem('pin_ok', '1');
+        overlay.style.display = 'none';
       } else {
         pin = '';
         updateDots();
       }
     }
-    updateDots();
+    function showPinIfNeeded() {
+      if (!localStorage.getItem('pin_ok')) {
+        overlay.style.display = 'flex';
+        updateDots();
+      }
+    }
+    document.addEventListener('DOMContentLoaded', showPinIfNeeded);
   </script>
 </body>
 </html>
