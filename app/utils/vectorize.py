@@ -12,7 +12,7 @@ from config import DB_NAME, COLLECTION_NAME
 logger = logging.getLogger(__name__)
 
 # Charger le modèle UNE SEULE FOIS au niveau du module
-model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=os.environ.get("HF_TOKEN"))
 
 def update_faiss_index(client=None):
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
