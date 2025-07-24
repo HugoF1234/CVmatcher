@@ -3,171 +3,126 @@
 <head>
   <meta charset="UTF-8">
   <title>Détail du CV - {{ cv.nom }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      background: linear-gradient(to bottom right, #f8f9fa, #f1ecef);
+    :root {
+      --primary: #f57a67;
+      --primary-dark: #e45c49;
+      --secondary: #6e90a0;
+      --light-bg: #f8fafc;
+      --dark-text: #2d3a4a;
+      --gray-light: #e9ecef;
+      --white: #ffffff;
+      --card-hover: #f0f7fa;
     }
-
-    nav {
-      background-color: #dbe3e7;
-      padding: 12px 20px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-
-    nav a {
-      color: #34495e;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 16px;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      padding: 20px;
-      background-color: white;
-      border-bottom: 1px solid #ddd;
-    }
-
-    .logo-img {
-      height: 60px;
-      margin-right: 15px;
-    }
-
-    .brand {
-      font-size: 26px;
-      font-weight: bold;
-      color: #f27c6a;
-    }
-
-    .container {
-      max-width: 950px;
-      margin: 40px auto;
-      background-color: #fff;
-      border-radius: 12px;
-      padding: 40px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-    }
-
-    h1 {
-      color: #2c3e50;
-      font-size: 28px;
-      margin-bottom: 10px;
-    }
-
-    .cv-section {
-      margin-bottom: 25px;
-    }
-
-    .section-title {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #6e90a0;
-      border-left: 4px solid #f27c6a;
-      padding-left: 10px;
-    }
-
-    .cv-info p, .cv-info li {
-      font-size: 16px;
-      color: #444;
-      margin-bottom: 6px;
-    }
-
-    ul {
-      padding-left: 20px;
-    }
-
-    .back-link {
-      display: inline-block;
-      margin-bottom: 20px;
-      text-decoration: none;
-      color: #f27c6a;
-      font-weight: bold;
-    }
-
-    .back-link:hover {
-      text-decoration: underline;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Montserrat', Arial, sans-serif; background: linear-gradient(135deg, var(--light-bg) 0%, #f3e7e9 100%); color: var(--dark-text); min-height: 100vh; }
+    header { display: flex; align-items: center; padding: 15px 40px; background-color: var(--white); box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-img { height: 70px; object-fit: contain; }
+    .brand { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+    nav.nav-main { background: #dbe3e7; padding: 12px 40px; display: flex; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .nav-link { position: relative; padding: 8px 16px; text-decoration: none; font-weight: 600; color: #444; margin-right: 20px; border-radius: 6px; transition: all 0.2s ease; }
+    .nav-link.active { background-color: var(--white); color: var(--primary); }
+    .nav-link:hover { background-color: rgba(255,255,255,0.5); }
+    .container { max-width: 1000px; margin: 40px auto; background: var(--white); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 32px 40px; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--primary); font-weight: 600; margin-bottom: 24px; }
+    .back-link:hover { text-decoration: underline; }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 16px; }
+    .toggle-like { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--light-bg); border: 1px solid var(--gray-light); border-radius: 6px; color: #e74c3c; font-weight: 600; text-decoration: none; transition: all 0.2s ease; margin-left: 16px; }
+    .toggle-like:hover { background: #fee2e2; }
+    .section { margin-bottom: 32px; }
+    .section-title { font-size: 1.3rem; font-weight: 600; color: var(--secondary); border-left: 4px solid var(--primary); padding-left: 10px; margin-bottom: 12px; }
+    .section-content p, .section-content li { font-size: 1rem; line-height: 1.5; color: var(--dark-text); margin-bottom: 8px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: var(--light-bg); color: var(--secondary); border: 1px solid var(--gray-light); border-radius: 10px; padding: 4px 10px; font-size: 0.95rem; font-weight: 500; }
+    .download-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--gray-light); color: var(--dark-text); border-radius: 12px; padding: 8px 20px; text-decoration: none; font-weight: 600; border: 1px solid #d1d5db; transition: background 0.2s ease; margin-top: 16px; }
+    .download-btn:hover { background: #e2e8f0; }
   </style>
 </head>
 <body>
-  <nav style="background: #f8fafc; padding: 18px 0 18px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-    <a href="/" style="display: inline-flex; align-items: center; color: #f57a67; font-weight: 600; font-size: 1.1rem; text-decoration: none;">
-      <span style="font-size: 1.5rem; margin-right: 8px;">&#8592;</span> Retour à la recherche
-    </a>
-  </nav>
-
-  <header class="header">
-    <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
-    <span class="brand">TalentMatchers</span>
+  <header>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
+      <span class="brand">TalentMatchers</span>
+    </div>
   </header>
+  <nav class="nav-main">
+    <a href="/" class="nav-link"><i class="fas fa-search"></i> Recherche</a>
+    <a href="/likes" class="nav-link"><i class="fas fa-heart"></i> Favoris</a>
+  </nav>
+  <div class="container">
+    <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Retour à la recherche</a>
+    <div style="display: flex; align-items: center;">
+      <h1>{{ cv.nom }}</h1>
+      <a href="/toggle_like/{{ cv._id }}" class="toggle-like">
+        <i class="fas fa-heart"></i>{% if liked %} Retirer{% else %} Ajouter{% endif %}
+      </a>
+    </div>
 
-  <div class="container" style="margin-top: 40px; margin-bottom: 40px; box-shadow: 0 8px 32px rgba(0,0,0,0.07); border-radius: 18px; padding: 48px 36px; background: #f8fafc;">
-    <h1 style="font-size: 2.2rem; font-weight: 700; color: #2d3a4a; margin-bottom: 24px; letter-spacing: 0.5px;">{{ cv.nom }}</h1>
-
-    <div class="cv-section cv-info" style="margin-bottom: 32px;">
-      <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Email :</strong> {{ cv.email }}</p>
-      <p style="font-size: 1.1rem; color: #6e90a0; margin-bottom: 8px;"><strong>Secteur :</strong> {{ cv.secteur }}</p>
-      <p style="font-size: 1.08rem; color: #6e90a0; margin-bottom: 8px;"><strong>Langues :</strong>
-        <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+    <div class="section">
+      <div class="section-title">Coordonnées</div>
+      <div class="section-content">
+        <p><strong>Email :</strong> {{ cv.email }}</p>
+        <p><strong>Secteur :</strong> {{ cv.secteur | join(', ') }}</p>
+        <p><strong>Langues :</strong></p>
+        <div class="tags">
           {% for lang in cv.langues %}
-            <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.98rem; font-weight: 400; border: 1px solid #e3e7ea;">
-              {{ lang }}
-            </span>
+            <span class="tag">{{ lang }}</span>
           {% endfor %}
-        </span>
-      </p>
-      <p style="font-size: 1.08rem; color: #6e90a0; margin-bottom: 8px;"><strong>Compétences :</strong>
-        <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+        </div>
+        <p style="margin-top:16px;"><strong>Compétences :</strong></p>
+        <div class="tags">
           {% for comp in cv.competences %}
-            <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.98rem; font-weight: 400; border: 1px solid #e3e7ea;">
-              {{ comp }}
-            </span>
+            <span class="tag">{{ comp }}</span>
           {% endfor %}
-        </span>
-      </p>
+        </div>
+      </div>
     </div>
 
     {% if cv.nomdupdf %}
-    <div style="margin: 28px 0 36px 0; text-align: center;">
-      <a href="{{ url_for('download_pdf', nomdupdf=cv.nomdupdf) }}"
-         style="display: inline-block; background: #e9ecef; color: #2d3a4a; border-radius: 18px; font-weight: 500; font-size: 1rem; padding: 8px 22px; text-decoration: none; border: 1px solid #d1d5db; transition: background 0.2s;">
-        <i class="fas fa-download" style="margin-right: 6px;"></i> Télécharger le PDF
+    <div class="section" style="text-align:center;">
+      <a href="{{ url_for('download_pdf', nomdupdf=cv.nomdupdf) }}" class="download-btn">
+        <i class="fas fa-download"></i> Télécharger le PDF
       </a>
-      <div class="small text-muted" style="margin-top: 6px; font-size: 0.98rem;">{{ cv.nomdupdf }}</div>
+      <div style="margin-top:6px; font-size:0.9rem; color:#888;">{{ cv.nomdupdf }}</div>
     </div>
     {% endif %}
 
-    <div class="cv-section" style="margin-bottom: 32px; background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); padding: 28px 24px;">
-      <div class="section-title" style="font-size: 1.3rem; color: #6e90a0; margin-bottom: 12px;">Biographie</div>
-      <p style="font-size: 1.1rem; color: #444;">{{ cv.biographie }}</p>
+    <div class="section">
+      <div class="section-title">Biographie</div>
+      <div class="section-content">
+        <p>{{ cv.biographie }}</p>
+      </div>
     </div>
 
-    <div class="cv-section" style="margin-bottom: 32px; background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); padding: 28px 24px;">
-      <div class="section-title" style="font-size: 1.3rem; color: #6e90a0; margin-bottom: 12px;">Formations</div>
-      <ul style="font-size: 1.08rem;">
+    {% if cv.formations %}
+    <div class="section">
+      <div class="section-title">Formations</div>
+      <ul class="section-content">
         {% for f in cv.formations %}
-          <li style="margin-bottom: 8px;"><strong>{{ f.diplome }}</strong> – {{ f.etablissement }} <span style="color: #b0b0b0;">({{ f.annee }})</span></li>
+          <li><strong>{{ f.diplome }}</strong> – {{ f.etablissement }} <span style="color:#888;">({{ f.annee }})</span></li>
         {% endfor %}
       </ul>
     </div>
+    {% endif %}
 
-    <div class="cv-section" style="background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); padding: 28px 24px;">
-      <div class="section-title" style="font-size: 1.3rem; color: #6e90a0; margin-bottom: 12px;">Expériences</div>
-      <ul style="font-size: 1.08rem;">
+    {% if cv.experiences %}
+    <div class="section">
+      <div class="section-title">Expériences</div>
+      <ul class="section-content">
         {% for exp in cv.experiences %}
-          <li style="margin-bottom: 16px;">
-            <strong>{{ exp.titre }}</strong> chez <span style="color: #f57a67;">{{ exp.entreprise }}</span> ({{ exp.dateDebut }} - {{ exp.dateFin }}) à {{ exp.lieu }}<br>
-            <em style="color: #888;">{{ exp.description }}</em>
+          <li style="margin-bottom:16px;">
+            <strong>{{ exp.titre }}</strong> chez <span style="color:var(--primary);">{{ exp.entreprise }}</span>
+            <span style="color:#888;">({{ exp.dateDebut }} – {{ exp.dateFin or 'Présent' }})</span>
+            <p><em>{{ exp.description }}</em></p>
           </li>
         {% endfor %}
       </ul>
     </div>
+    {% endif %}
   </div>
-
 </body>
 </html>
