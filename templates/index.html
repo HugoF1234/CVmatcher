@@ -298,67 +298,33 @@
             font-size: 0.95rem;
             transition: all 0.2s ease;
         }
-        
-        .like-btn:hover {
-            background-color: #fee2e2;
-            border-color: #e74c3c;
-            transform: translateY(-2px);
+        /* PIN Overlay styles */
+        #overlay {
+          position:fixed; top:0; left:0;
+          width:100vw; height:100vh;
+          backdrop-filter: blur(8px);
+          background: rgba(0,0,0,0.6);
+          display:flex; flex-direction:column;
+          align-items:center; justify-content:center;
+          z-index:9999;
         }
-        
-        .like-btn i {
-            font-size: 1.1rem;
+        .pin-dots { display:flex; margin-bottom:20px; }
+        .dot {
+          width:16px; height:16px;
+          border:2px solid #0ff; border-radius:50%; margin:0 8px;
         }
-        
-        .search-icon {
-            width: 18px;
-            height: 18px;
+        .filled { background:#0ff; }
+        .pin-pad {
+          display:grid; grid-template-columns:repeat(3,60px); grid-gap:15px;
         }
-        
-        .no-results {
-            text-align: center;
-            padding: 40px 0;
-            color: #666;
+        .pin-pad button {
+          width:60px; height:60px;
+          border:2px solid #0ff; border-radius:50%;
+          background:rgba(255,255,255,0.1);
+          font-size:1.2rem; color:#fff; cursor:pointer;
+          transition: background 0.2s;
         }
-        
-        /* Styles pour la zone de chargement */
-        #loading-container {
-            text-align: center;
-            padding: 40px 0;
-            margin: 30px 0;
-        }
-        
-        .loading-spinner {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(110, 144, 160, 0.2);
-            border-radius: 50%;
-            border-top-color: var(--spinner-color);
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        
-        .loading-text {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--secondary);
-            margin-bottom: 8px;
-        }
-        
-        .loading-subtext {
-            color: #718096;
-            font-size: 0.95rem;
-        }
+        .pin-pad button:active { background:rgba(255,255,255,0.2); }
         
         @media (max-width: 768px) {
             .container {
@@ -408,6 +374,29 @@
     </style>
 </head>
 <body>
+  <!-- Overlay PIN -->
+  <div id="overlay">
+    <div class="pin-dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+    <div class="pin-pad">
+      <button onclick="press('1')">1</button>
+      <button onclick="press('2')">2</button>
+      <button onclick="press('3')">3</button>
+      <button onclick="press('4')">4</button>
+      <button onclick="press('5')">5</button>
+      <button onclick="press('6')">6</button>
+      <button onclick="press('7')">7</button>
+      <button onclick="press('8')">8</button>
+      <button onclick="press('9')">9</button>
+      <button onclick="del()">⌫</button>
+      <button onclick="press('0')">0</button>
+      <button onclick="enter()">✓</button>
+    </div>
+  </div>
   <header>
     <div class="logo">
         <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
@@ -570,6 +559,33 @@
         }, 3000);
       }
     }
+
+    // --- PIN Overlay JS ---
+    const SECRET = '1320';
+    let pin = '';
+    const overlay = document.getElementById('overlay');
+    function updateDots() {
+      document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('filled', i < pin.length));
+    }
+    function press(d) {
+      if (pin.length < 4) {
+        pin += d;
+        updateDots();
+      }
+    }
+    function del() {
+      pin = pin.slice(0, -1);
+      updateDots();
+    }
+    function enter() {
+      if (pin === SECRET) {
+        overlay.remove();
+      } else {
+        pin = '';
+        updateDots();
+      }
+    }
+    updateDots();
   </script>
 </body>
 </html>
