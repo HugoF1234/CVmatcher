@@ -305,11 +305,6 @@
     {% extends "index.html" %}
     {% block content %}
     <div class="container" style="margin-top: 40px; margin-bottom: 40px;">
-        {% if session.prompt %}
-        <div style="background: #f8fafc; border-left: 4px solid #f57a67; padding: 14px 24px; border-radius: 10px; margin-bottom: 32px; color: #6e90a0; font-size: 1.08rem;">
-            <i class="fas fa-search"></i> Dernière recherche : <strong>{{ session.prompt }}</strong>
-        </div>
-        {% endif %}
         <h2 style="text-align:center; color: var(--primary); font-weight: 700; margin-bottom: 32px;">Vos profils favoris</h2>
         {% if results %}
             <div style="display: flex; flex-wrap: wrap; gap: 32px; justify-content: center;">
@@ -332,6 +327,9 @@
                         <span style="background: #f6f8fa; color: #5a6d7a; border-radius: 10px; padding: 4px 10px; font-size: 0.97rem; font-weight: 400; border: 1px solid #e3e7ea; margin-right: 4px; margin-bottom: 3px; display: inline-block;">{{ comp }}</span>
                         {% endfor %}
                     </div>
+                    {% if cv.biographie %}
+                    <div style="margin-bottom: 10px; color: #6e90a0; font-size: 0.98rem;">{{ cv.biographie }}</div>
+                    {% endif %}
                     <a href="{{ url_for('show_cv_detail', cv_id=cv._id) }}" class="btn btn-primary" style="border-radius: 18px; font-size: 1rem; font-weight: 500; margin-top: 10px; background: #f57a67; color: white; text-decoration: none; padding: 8px 20px;">Voir le profil complet</a>
                 </div>
             {% endfor %}
