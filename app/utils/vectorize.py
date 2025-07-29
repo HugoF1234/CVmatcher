@@ -252,7 +252,7 @@ def update_faiss_index(client=None):
             "id_mapping": mapping_b64,
             "vector_count": len(vectors),
             "dimension": dimension,
-            "model_name": "all-MiniLM-L6-v2",
+            "model_name": "sentence-transformers/all-MiniLM-L6-v2",
             "index_type": "IndexFlatIP"
         }
         
@@ -528,7 +528,7 @@ def add_cv_to_faiss_index(cv):
                 "id_mapping": mapping_b64,
                 "vector_count": len(id_mapping),
                 "dimension": index.d,
-                "model_name": "all-MiniLM-L6-v2",
+                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
                 "index_type": "IndexFlatIP"
             }},
             upsert=True
