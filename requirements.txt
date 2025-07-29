@@ -2,6 +2,8 @@ flask
 faiss-cpu
 numpy
 sentence-transformers
+transformers
+torch
 pymongo
 google-auth
 google-auth-oauthlib
