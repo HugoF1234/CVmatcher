@@ -459,15 +459,15 @@ def run_diagnostic():
         
         # Test 2: SentenceTransformer
         try:
-            import os
             from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer("all-MiniLM-L6-v2", use_auth_token=os.environ.get("HF_TOKEN"))
+            from config import HF_TOKEN
+            model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
             test_text = "développeur Python avec 5 ans d'expérience"
             vector = model.encode(test_text)
             
             diagnostic_results["tests"]["sentence_transformer"] = {
                 "status": "success",
-                "model_name": "all-MiniLM-L6-v2",
+                "model_name": "paraphrase-MiniLM-L3-v2",
                 "vector_dimension": len(vector),
                 "test_text": test_text
             }
