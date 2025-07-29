@@ -12,11 +12,15 @@ WORKDIR /app
 # Créer un utilisateur non-root pour des raisons de sécurité
 RUN addgroup --system app && adduser --system --group app
 
+# Installer git et les dépendances système nécessaires
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copier requirements et installer les dépendances
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir git+https://github.com/huggingface/transformers.git
+    pip install --no-cache-dir -r requirements.txt
 
 # Créer un dossier cache pour Hugging Face
 ENV SENTENCE_TRANSFORMERS_HOME=/app/models
