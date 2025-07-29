@@ -17,18 +17,16 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# --- Optimisation: Pré-télécharger le modèle et configurer le cache ---
+# --- Configuration du cache pour sentence-transformers ---
 # On définit une variable d'environnement pour que le cache soit dans un dossier accessible en écriture
 ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
-# CORRECTION ICI : Changer le modèle à 'paraphrase-MiniLM-L3-v2' pour correspondre à votre code
-# De plus, s'assurer que le modèle est bien inclus dans le chemin de l'application
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('paraphrase-MiniLM-L3-v2')"
+# Créer le dossier de cache et donner les permissions
+RUN mkdir -p /app/.cache && chown -R app:app /app/.cache
 
 # Copier le reste du code de l'application
 COPY . .
 
 # Changer le propriétaire des fichiers pour l'utilisateur non-root
-# On s'assure que le dossier du cache appartient aussi au bon utilisateur
 RUN chown -R app:app /app
 
 # Changer d'utilisateur
@@ -39,6 +37,4 @@ USER app
 EXPOSE 8080
 
 # Commande pour lancer l'application avec Gunicorn
-# CORRECTION ICI : Retirer les arguments --workers et --threads pour que gunicorn.conf.py soit utilisé
-# Le fichier gunicorn.conf.py est déjà bien configuré avec worker_class = "sync" et workers = 1
 CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py main:app
