@@ -7,8 +7,21 @@ COLLECTION_NAME = "CVExtractionCollection"
 FAISS_INDEX_FILE = "faiss_index/cv_index.faiss"
 ID_MAPPING_FILE = "faiss_index/id_mapping.pkl"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBST1NZu1zU-qffOWtoNn6uhzODaJBviiQ")
+HF_TOKEN = os.environ.get("HF_TOKEN")
 TOP_K = 5
 SECRET_KEY = "0180529a5b9c1ec478296df826a91c31"
+
+# Debug: Vérifier les variables d'environnement critiques
+import logging
+logger = logging.getLogger(__name__)
+
+if not HF_TOKEN:
+    logger.warning("⚠️ HF_TOKEN non défini - les modèles Hugging Face pourraient ne pas fonctionner")
+else:
+    logger.info("✅ HF_TOKEN trouvé dans la configuration")
+
+if not MONGO_URI:
+    logger.warning("⚠️ MONGO_URI non défini")
 
 # Créer le dossier faiss_index s'il n'existe pas
 os.makedirs("faiss_index", exist_ok=True)
