@@ -29,9 +29,8 @@ RUN mkdir -p /app/models && chown -R app:app /app/models
 # Copier le code de l'application d'abord
 COPY . .
 
-# Télécharger et stocker localement le modèle all-MiniLM-L6-v2 avec le token
-ARG HF_TOKEN
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', token='$HF_TOKEN').save('/app/models/all-MiniLM-L6-v2')"
+# Télécharger et stocker localement le modèle all-MiniLM-L6-v2 (modèle public)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').save('/app/models/all-MiniLM-L6-v2')"
 
 # Passer à l'utilisateur non-root
 USER app
