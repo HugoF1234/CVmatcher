@@ -1,4 +1,4 @@
-from flask import render_template, request, session, redirect, url_for, jsonify
+from flask import render_template, request, session, redirect, url_for, jsonify, current_app
 import faiss
 import numpy as np
 import os
@@ -15,6 +15,9 @@ from contextlib import contextmanager
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import de l'app Flask
+from app import app
 
 # === INITIALISATION GLOBALE ===
 index = None
