@@ -35,5 +35,5 @@ COPY . .
 # Passer à l'utilisateur non-root
 USER app
 
-# Lancer gunicorn (tu peux ajuster en fonction de ton conf)
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]
+# Lancer gunicorn avec la bonne référence à l'app
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "main:app"]
