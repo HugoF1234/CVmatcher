@@ -35,5 +35,5 @@ COPY . .
 # Passer à l'utilisateur non-root
 USER app
 
-# Lancer gunicorn avec la bonne référence à l'app
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "main:app"]
+# Lancer gunicorn avec le point d'entrée WSGI
+CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py wsgi:app
