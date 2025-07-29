@@ -11,13 +11,33 @@ from config import DB_NAME, COLLECTION_NAME
 
 logger = logging.getLogger(__name__)
 
+# Debug: Vérifier que le token est disponible
+from config import HF_TOKEN
+if HF_TOKEN:
+    logger.info("✅ HF_TOKEN trouvé dans la configuration")
+    # Masquer le token pour la sécurité (afficher seulement les premiers caractères)
+    masked_token = HF_TOKEN[:8] + "..." + HF_TOKEN[-4:] if len(HF_TOKEN) > 12 else "***"
+    logger.info(f"🔑 Token: {masked_token}")
+else:
+    logger.warning("⚠️ HF_TOKEN non trouvé dans la configuration")
+
 # Charger le modèle UNE SEULE FOIS au niveau du module
-model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=os.environ.get("HF_TOKEN"))
+try:
+    model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
+    logger.info("✅ Modèle SentenceTransformer chargé avec succès")
+except Exception as e:
+    logger.error(f"❌ Erreur lors du chargement du modèle SentenceTransformer: {e}")
+    model = None
 
 def update_faiss_index(client=None):
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
     try:
         logger.info("🔄 Début création index FAISS")
+        
+        # Vérifier que le modèle est disponible
+        if model is None:
+            logger.error("❌ Modèle SentenceTransformer non disponible")
+            return False
         
         # Utiliser le modèle global déjà chargé
         # model = SentenceTransformer("all-MiniLM-L6-v2")  # SUPPRIMÉ
@@ -280,6 +300,11 @@ def load_faiss_from_mongodb(client=None):
 def search_similar_cvs(query_text, top_k=5):
     """Recherche des CVs similaires à la requête"""
     try:
+        # Vérifier que le modèle est disponible
+        if model is None:
+            logger.error("❌ Modèle SentenceTransformer non disponible pour la recherche")
+            return []
+        
         # Charger l'index
         index, id_mapping = load_faiss_from_mongodb()
         
@@ -359,6 +384,11 @@ def add_cv_to_faiss_index(cv):
     import os
     from config import get_mongo_client, DB_NAME, COLLECTION_NAME
     logger = logging.getLogger(__name__)
+
+    # Vérifier que le modèle est disponible
+    if model is None:
+        logger.error("❌ Modèle SentenceTransformer non disponible pour l'ajout incrémental")
+        return False
 
     # Charger l'index et le mapping existants
     index, id_mapping = load_faiss_from_mongodb()
