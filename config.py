@@ -23,8 +23,15 @@ else:
 if not MONGO_URI:
     logger.warning("⚠️ MONGO_URI non défini")
 
+def ensure_faiss_directory():
+    """Crée le dossier faiss_index s'il n'existe pas"""
+    try:
+        os.makedirs("faiss_index", exist_ok=True)
+    except PermissionError:
+        logger.warning("⚠️ Impossible de créer faiss_index - permissions insuffisantes")
+
 # Créer le dossier faiss_index s'il n'existe pas
-os.makedirs("faiss_index", exist_ok=True)
+ensure_faiss_directory()
 
 def get_mongo_client():
     """Retourne un client MongoDB pour Render + Atlas avec ServerApi"""
