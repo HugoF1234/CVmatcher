@@ -12,29 +12,24 @@ WORKDIR /app
 # Créer un utilisateur non-root pour des raisons de sécurité
 RUN addgroup --system app && adduser --system --group app
 
-# Mettre à jour pip et installer les dépendances
+# Copier requirements et installer les dépendances
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir git+https://github.com/huggingface/transformers.git
 
-# --- Configuration du cache pour sentence-transformers ---
-# On définit une variable d'environnement pour que le cache soit dans un dossier accessible en écriture
-ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
-# Créer le dossier de cache et donner les permissions
-RUN mkdir -p /app/.cache && chown -R app:app /app/.cache
+# Créer un dossier cache pour Hugging Face
+ENV SENTENCE_TRANSFORMERS_HOME=/app/models
+RUN mkdir -p /app/models && chown -R app:app /app/models
+
+# Télécharger et stocker localement le modèle all-MiniLM-L6-v2
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').save('/app/models/all-MiniLM-L6-v2')"
 
 # Copier le reste du code de l'application
 COPY . .
 
-# Changer le propriétaire des fichiers pour l'utilisateur non-root
-RUN chown -R app:app /app
-
-# Changer d'utilisateur
+# Passer à l'utilisateur non-root
 USER app
 
-# Exposer le port que Cloud Run utilisera
-# Cloud Run injecte la variable d'environnement PORT, par défaut 8080
-EXPOSE 8080
-
-# Commande pour lancer l'application avec Gunicorn
-CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py main:app
+# Lancer gunicorn (tu peux ajuster en fonction de ton conf)
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]
