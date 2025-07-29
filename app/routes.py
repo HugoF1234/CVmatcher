@@ -473,7 +473,7 @@ def run_diagnostic():
                 
                 diagnostic_results["tests"]["sentence_transformer"] = {
                     "status": "success",
-                    "model_name": "sentence-transformers/paraphrase-MiniLM-L3-v2",
+                    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
                     "vector_dimension": len(vector),
                     "test_text": test_text
                 }
@@ -805,7 +805,7 @@ def model_status():
                 return jsonify({
                     "status": "success",
                     "model_loaded": True,
-                    "model_name": "sentence-transformers/paraphrase-MiniLM-L3-v2",
+                    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
                     "vector_dimension": len(test_vector),
                     "message": "Modèle fonctionnel"
                 })
