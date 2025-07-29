@@ -24,6 +24,57 @@ else:
 # Variable globale pour le modèle
 _model = None
 
+def get_model_alternative():
+    """Charge le modèle avec AutoTokenizer + AutoModel comme alternative"""
+    try:
+        from transformers import AutoTokenizer, AutoModel
+        import torch
+        import torch.nn.functional as F
+        
+        logger.info("🔄 Tentative de chargement avec AutoTokenizer + AutoModel...")
+        
+        # Load model from HuggingFace Hub
+        tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L6-v2', token=HF_TOKEN)
+        model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2', token=HF_TOKEN)
+        
+        # Créer une classe wrapper pour compatibilité
+        class ModelWrapper:
+            def __init__(self, tokenizer, model):
+                self.tokenizer = tokenizer
+                self.model = model
+                
+            def encode(self, sentences, **kwargs):
+                if isinstance(sentences, str):
+                    sentences = [sentences]
+                
+                # Tokenize sentences
+                encoded_input = self.tokenizer(sentences, padding=True, truncation=True, return_tensors='pt')
+                
+                # Compute token embeddings
+                with torch.no_grad():
+                    model_output = self.model(**encoded_input)
+                
+                # Perform pooling
+                sentence_embeddings = self._mean_pooling(model_output, encoded_input['attention_mask'])
+                
+                # Normalize embeddings
+                sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+                
+                return sentence_embeddings.numpy()
+            
+            def _mean_pooling(self, model_output, attention_mask):
+                token_embeddings = model_output[0]
+                input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+                return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+        wrapper = ModelWrapper(tokenizer, model)
+        logger.info("✅ Modèle alternatif chargé avec succès")
+        return wrapper
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur chargement modèle alternatif: {e}")
+        return None
+
 def get_model():
     """Charge le modèle SentenceTransformer de manière lazy avec retry"""
     global _model
@@ -33,25 +84,46 @@ def get_model():
     
     try:
         logger.info("🔄 Chargement du modèle SentenceTransformer...")
-        _model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", token=HF_TOKEN)
-        logger.info("✅ Modèle SentenceTransformer chargé avec succès")
-        return _model
+        
+        # Vérifier que le token est disponible
+        if not HF_TOKEN:
+            logger.error("❌ HF_TOKEN non disponible")
+            return None
+            
+        # Utiliser une approche plus robuste avec gestion d'erreurs
+        import huggingface_hub
+        from huggingface_hub import login
+        
+        # Login avec le token
+        try:
+            login(token=HF_TOKEN)
+            logger.info("✅ Login Hugging Face réussi")
+        except Exception as e:
+            logger.warning(f"⚠️ Login Hugging Face échoué: {e}")
+        
+        # Charger le modèle avec retry
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                _model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", token=HF_TOKEN)
+                logger.info("✅ Modèle SentenceTransformer chargé avec succès")
+                return _model
+            except Exception as e:
+                logger.error(f"❌ Tentative {attempt + 1}/{max_retries} échouée: {e}")
+                if attempt < max_retries - 1:
+                    import time
+                    wait_time = (attempt + 1) * 10  # Attendre de plus en plus longtemps
+                    logger.info(f"🔄 Attente de {wait_time} secondes avant nouvelle tentative...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error("❌ Échec définitif du chargement du modèle")
+                    # Essayer l'approche alternative
+                    logger.info("🔄 Tentative avec l'approche alternative...")
+                    return get_model_alternative()
+                    
     except Exception as e:
         logger.error(f"❌ Erreur lors du chargement du modèle SentenceTransformer: {e}")
-        logger.info("🔄 Tentative de rechargement dans 5 secondes...")
-        
-        # Réessayer une fois après un délai
-        import time
-        time.sleep(5)
-        
-        try:
-            logger.info("🔄 Deuxième tentative de chargement du modèle...")
-            _model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", token=HF_TOKEN)
-            logger.info("✅ Modèle SentenceTransformer chargé avec succès (deuxième tentative)")
-            return _model
-        except Exception as e2:
-            logger.error(f"❌ Échec définitif du chargement du modèle: {e2}")
-            return None
+        return None
 
 def reset_model():
     """Réinitialise le modèle (utile pour les tests)"""
