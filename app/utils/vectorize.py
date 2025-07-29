@@ -33,7 +33,7 @@ def get_model():
     
     try:
         logger.info("🔄 Chargement du modèle SentenceTransformer...")
-        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
+        _model = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L3-v2", token=HF_TOKEN)
         logger.info("✅ Modèle SentenceTransformer chargé avec succès")
         return _model
     except Exception as e:
@@ -46,7 +46,7 @@ def get_model():
         
         try:
             logger.info("🔄 Deuxième tentative de chargement du modèle...")
-            _model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
+            _model = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L3-v2", token=HF_TOKEN)
             logger.info("✅ Modèle SentenceTransformer chargé avec succès (deuxième tentative)")
             return _model
         except Exception as e2:
