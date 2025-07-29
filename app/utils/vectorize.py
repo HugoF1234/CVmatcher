@@ -21,13 +21,43 @@ if HF_TOKEN:
 else:
     logger.warning("⚠️ HF_TOKEN non trouvé dans la configuration")
 
-# Charger le modèle UNE SEULE FOIS au niveau du module
-try:
-    model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
-    logger.info("✅ Modèle SentenceTransformer chargé avec succès")
-except Exception as e:
-    logger.error(f"❌ Erreur lors du chargement du modèle SentenceTransformer: {e}")
-    model = None
+# Variable globale pour le modèle
+_model = None
+
+def get_model():
+    """Charge le modèle SentenceTransformer de manière lazy avec retry"""
+    global _model
+    
+    if _model is not None:
+        return _model
+    
+    try:
+        logger.info("🔄 Chargement du modèle SentenceTransformer...")
+        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
+        logger.info("✅ Modèle SentenceTransformer chargé avec succès")
+        return _model
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du chargement du modèle SentenceTransformer: {e}")
+        logger.info("🔄 Tentative de rechargement dans 5 secondes...")
+        
+        # Réessayer une fois après un délai
+        import time
+        time.sleep(5)
+        
+        try:
+            logger.info("🔄 Deuxième tentative de chargement du modèle...")
+            _model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
+            logger.info("✅ Modèle SentenceTransformer chargé avec succès (deuxième tentative)")
+            return _model
+        except Exception as e2:
+            logger.error(f"❌ Échec définitif du chargement du modèle: {e2}")
+            return None
+
+def reset_model():
+    """Réinitialise le modèle (utile pour les tests)"""
+    global _model
+    _model = None
+    logger.info("🔄 Modèle SentenceTransformer réinitialisé")
 
 def update_faiss_index(client=None):
     """Met à jour l'index FAISS et le stocke dans MongoDB"""
@@ -35,7 +65,7 @@ def update_faiss_index(client=None):
         logger.info("🔄 Début création index FAISS")
         
         # Vérifier que le modèle est disponible
-        if model is None:
+        if get_model() is None:
             logger.error("❌ Modèle SentenceTransformer non disponible")
             return False
         
@@ -144,7 +174,7 @@ def update_faiss_index(client=None):
                     
                     if len(combined_text) > 10:  # Minimum 10 caractères
                         # Encoder
-                        vector = model.encode(combined_text)
+                        vector = get_model().encode(combined_text)
                         
                         # Vérifier que le vecteur est valide
                         if vector is not None and len(vector) > 0:
@@ -301,7 +331,7 @@ def search_similar_cvs(query_text, top_k=5):
     """Recherche des CVs similaires à la requête"""
     try:
         # Vérifier que le modèle est disponible
-        if model is None:
+        if get_model() is None:
             logger.error("❌ Modèle SentenceTransformer non disponible pour la recherche")
             return []
         
@@ -316,7 +346,7 @@ def search_similar_cvs(query_text, top_k=5):
         
         # Utiliser le modèle global déjà chargé
         # model = SentenceTransformer("all-MiniLM-L6-v2")  # SUPPRIMÉ
-        query_vector = model.encode(query_text)
+        query_vector = get_model().encode(query_text)
         
         # Normaliser
         norm = np.linalg.norm(query_vector)
@@ -386,7 +416,7 @@ def add_cv_to_faiss_index(cv):
     logger = logging.getLogger(__name__)
 
     # Vérifier que le modèle est disponible
-    if model is None:
+    if get_model() is None:
         logger.error("❌ Modèle SentenceTransformer non disponible pour l'ajout incrémental")
         return False
 
@@ -456,7 +486,7 @@ def add_cv_to_faiss_index(cv):
         logger.warning(f"⚠️ Texte trop court pour {cv.get('nom', 'CV sans nom')}")
         return False
     # Vectorisation
-    vector = model.encode(combined_text)
+    vector = get_model().encode(combined_text)
     norm = np.linalg.norm(vector)
     if norm > 0:
         vector = vector / norm
