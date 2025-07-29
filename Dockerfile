@@ -26,14 +26,15 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ENV SENTENCE_TRANSFORMERS_HOME=/app/models
 RUN mkdir -p /app/models && chown -R app:app /app/models
 
-# Télécharger et stocker localement le modèle all-MiniLM-L6-v2
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').save('/app/models/all-MiniLM-L6-v2')"
-
-# Copier le reste du code de l'application
+# Copier le code de l'application d'abord
 COPY . .
+
+# Télécharger et stocker localement le modèle all-MiniLM-L6-v2 avec le token
+ARG HF_TOKEN
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', token='$HF_TOKEN').save('/app/models/all-MiniLM-L6-v2')"
 
 # Passer à l'utilisateur non-root
 USER app
 
-# Lancer gunicorn avec le point d'entrée WSGI
-CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py wsgi:app
+# Lancer gunicorn avec la bonne référence à l'app
+CMD exec gunicorn --bind :$PORT --config gunicorn.conf.py app:app
