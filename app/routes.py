@@ -10,7 +10,6 @@ import json
 import logging
 import threading
 from config import *
-from app import app
 import signal
 from contextlib import contextmanager
 # Configuration du logging
