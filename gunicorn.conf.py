@@ -2,7 +2,7 @@
 import os
 
 # Configuration du serveur
-bind = f"0.0.0.0:{os.environ.get('PORT', 10000)}"
+bind = f"0.0.0.0:{os.environ.get('PORT', 8080)}"
 workers = 1  # Un seul worker pour éviter les conflits de modèles ML
 worker_class = "sync"
 worker_connections = 1000
