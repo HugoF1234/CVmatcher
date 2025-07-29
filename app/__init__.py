@@ -13,5 +13,10 @@ app = Flask(__name__,
 
 app.secret_key = SECRET_KEY
 
-# Importer les routes (cela va les enregistrer automatiquement)
-from app import routes
+# Importer les routes après la création de l'app pour éviter l'importation circulaire
+def register_routes():
+    from app import routes
+    return app
+
+# Enregistrer les routes
+register_routes()
