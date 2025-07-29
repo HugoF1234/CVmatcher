@@ -29,6 +29,9 @@ RUN mkdir -p /app/models && chown -R app:app /app/models
 # Copier le code de l'application d'abord
 COPY . .
 
+# Créer le dossier faiss_index avec les bonnes permissions
+RUN mkdir -p /app/faiss_index && chown -R app:app /app/faiss_index
+
 # Télécharger et stocker localement le modèle all-MiniLM-L6-v2 (modèle public)
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').save('/app/models/all-MiniLM-L6-v2')"
 
