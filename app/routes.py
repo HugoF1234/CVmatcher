@@ -459,18 +459,24 @@ def run_diagnostic():
         
         # Test 2: SentenceTransformer
         try:
-            from sentence_transformers import SentenceTransformer
-            from config import HF_TOKEN
-            model = SentenceTransformer("paraphrase-MiniLM-L3-v2", use_auth_token=HF_TOKEN)
-            test_text = "développeur Python avec 5 ans d'expérience"
-            vector = model.encode(test_text)
+            from app.utils.vectorize import get_model
             
-            diagnostic_results["tests"]["sentence_transformer"] = {
-                "status": "success",
-                "model_name": "paraphrase-MiniLM-L3-v2",
-                "vector_dimension": len(vector),
-                "test_text": test_text
-            }
+            model = get_model()
+            if model is None:
+                diagnostic_results["tests"]["sentence_transformer"] = {
+                    "status": "error",
+                    "error": "Modèle non disponible - échec du chargement"
+                }
+            else:
+                test_text = "développeur Python avec 5 ans d'expérience"
+                vector = model.encode(test_text)
+                
+                diagnostic_results["tests"]["sentence_transformer"] = {
+                    "status": "success",
+                    "model_name": "paraphrase-MiniLM-L3-v2",
+                    "vector_dimension": len(vector),
+                    "test_text": test_text
+                }
         except Exception as e:
             diagnostic_results["tests"]["sentence_transformer"] = {
                 "status": "error",
@@ -783,3 +789,72 @@ def download_pdf(nomdupdf):
         return send_file(local_path, as_attachment=True)
     else:
         abort(404, "PDF non trouvé")
+
+@app.route("/model-status")
+def model_status():
+    """Vérifie l'état du modèle SentenceTransformer"""
+    try:
+        from app.utils.vectorize import get_model, reset_model
+        
+        model = get_model()
+        
+        if model is not None:
+            # Test simple d'encodage
+            try:
+                test_vector = model.encode("test")
+                return jsonify({
+                    "status": "success",
+                    "model_loaded": True,
+                    "model_name": "paraphrase-MiniLM-L3-v2",
+                    "vector_dimension": len(test_vector),
+                    "message": "Modèle fonctionnel"
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "model_loaded": True,
+                    "error": str(e),
+                    "message": "Modèle chargé mais erreur lors de l'encodage"
+                })
+        else:
+            return jsonify({
+                "status": "error",
+                "model_loaded": False,
+                "message": "Modèle non disponible"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "message": "Erreur lors de la vérification du modèle"
+        })
+
+@app.route("/reset-model", methods=["POST"])
+def reset_model_route():
+    """Réinitialise le modèle SentenceTransformer"""
+    try:
+        from app.utils.vectorize import reset_model, get_model
+        
+        reset_model()
+        
+        # Tenter de recharger le modèle
+        model = get_model()
+        
+        if model is not None:
+            return jsonify({
+                "status": "success",
+                "message": "Modèle réinitialisé et rechargé avec succès"
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Modèle réinitialisé mais échec du rechargement"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "message": "Erreur lors de la réinitialisation du modèle"
+        })
