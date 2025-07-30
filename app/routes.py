@@ -781,7 +781,7 @@ def download_pdf(nomdupdf):
         # (à adapter selon ta logique)
         # Supposons que tu as une fonction get_file_id_by_name(service, nomdupdf)
         from app.utils.drive_utils import list_pdfs
-        folder_id = "16CpxlBPbm8ZMRBH-B7tj5cmn4h3bXCbt"
+        folder_id = "1xrnoJjaS0YQvs5GQFcuYmlif3AQxRJCP"
         pdfs = list_pdfs(service, folder_id)
         file_id = next((pdf['id'] for pdf in pdfs if pdf['name'] == nomdupdf), None)
         if not file_id:
