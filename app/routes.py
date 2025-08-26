@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import de l'app Flask
-#test
+#test1
 from app import app
 
 # === INITIALISATION GLOBALE ===
