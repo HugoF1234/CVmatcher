@@ -1,0 +1,20 @@
+# Python/venv
+.venv/
+__pycache__/
+*.pyc
+
+# Local env & credentials
+.env
+credentials/
+faiss_index/
+
+# macOS
+.DS_Store
+
+# Byte-compiled / cache
+.cache/
+
+# Editor
+.idea/
+.vscode/
+

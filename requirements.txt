@@ -1,0 +1,13 @@
+flask
+faiss-cpu
+numpy
+sentence-transformers
+pymongo
+google-auth
+google-auth-oauthlib
+google-api-python-client
+PyMuPDF
+google-generativeai
+gunicorn
+jinja2
+gcsfs

@@ -1,0 +1,17 @@
+# trigger.yaml
+name: deploy-to-cloud-run
+description: "Déclencheur pour déployer CVmatcher sur Cloud Run depuis la branche main"
+
+# Source (GitHub)
+github:
+  owner: 'HugoF1234'
+  name: 'CVmatcher'
+  push:
+    branch: '^main$'
+
+# Configuration de la compilation
+# On dit au trigger d'utiliser la configuration définie dans cloudbuild.yaml
+filename: 'cloudbuild.yaml'
+
+# Compte de service
+serviceAccount: 'projects/cvmatcher-v2/serviceAccounts/cvmatcher2@cvmatcher-v2.iam.gserviceaccount.com'

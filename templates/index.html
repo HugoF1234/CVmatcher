@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Recherche de CV | TalentMatchers</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #f57a67;
+            --primary-dark: #e45c49;
+            --secondary: #6e90a0;
+            --light-bg: #f8fafc;
+            --dark-text: #2d3a4a;
+            --gray-light: #e9ecef;
+            --white: #ffffff;
+            --card-hover: #f0f7fa;
+            --spinner-color: #6e90a0;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--light-bg) 0%, #f3e7e9 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: var(--dark-text);
+        }
+        
+        header {
+            display: flex;
+            background-color: var(--white);
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 40px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-img {
+            height: 70px;
+            width: auto;
+            object-fit: contain;
+        }
+        
+        .brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+        
+        .nav-main {
+            background: #dbe3e7;
+            padding: 12px 40px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-link {
+            position: relative;
+            padding: 8px 16px;
+            text-decoration: none;
+            font-weight: 600;
+            color: #444;
+            margin-right: 20px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .nav-link.active {
+            background-color: var(--white);
+            color: var(--primary);
+        }
+        
+        .nav-link i {
+            margin-right: 6px;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 32px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--dark-text);
+            font-size: 2rem;
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+        
+        .search-box {
+            background: var(--light-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+        
+        form {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 16px 18px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+        
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(245, 122, 103, 0.2);
+            outline: none;
+        }
+        
+        button[type="submit"] {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        button[type="submit"]:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .results-title {
+            text-align: center;
+            color: var(--secondary);
+            margin: 30px 0 25px 0;
+            font-weight: 600;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .results-count {
+            background: var(--light-bg);
+            color: var(--secondary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .cv-card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 5px solid var(--primary);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cv-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            background-color: var(--card-hover);
+        }
+        
+        .cv-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        .cv-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--dark-text);
+        }
+        
+        .score-container {
+            text-align: right;
+        }
+        
+        .score-label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            color: var(--secondary);
+            font-weight: 500;
+        }
+        
+        .score-value {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+        
+        .progress-container {
+            height: 10px;
+            width: 120px;
+            background-color: var(--gray-light);
+            border-radius: 4px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary) 10%, var(--primary) 90%);
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .cv-details {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        
+        .cv-field {
+            margin-bottom: 12px;
+        }
+        
+        .cv-field-label {
+            font-weight: 600;
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            display: block;
+        }
+        
+        .cv-field-value {
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .recent-exp {
+            grid-column: 1 / -1;
+            background: var(--light-bg);
+            padding: 16px;
+            border-radius: 10px;
+            margin-top: 6px;
+            border-left: 3px solid var(--secondary);
+        }
+        
+        .like-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 16px;
+            padding: 8px 14px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #e74c3c;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        /* PIN Overlay styles */
+        #overlay {
+          position:fixed; top:0; left:0;
+          width:100vw; height:100vh;
+          backdrop-filter: blur(8px);
+          background: rgba(0,0,0,0.6);
+          display:flex; flex-direction:column;
+          align-items:center; justify-content:center;
+          z-index:9999;
+        }
+        .pin-dots { display:flex; margin-bottom:20px; }
+        .dot {
+          width:16px; height:16px;
+          border:2px solid #0ff; border-radius:50%; margin:0 8px;
+        }
+        .filled { background:#0ff; }
+        .pin-pad {
+          display:grid; grid-template-columns:repeat(3,60px); grid-gap:15px;
+        }
+        .pin-pad button {
+          width:60px; height:60px;
+          border:2px solid #0ff; border-radius:50%;
+          background:rgba(255,255,255,0.1);
+          font-size:1.2rem; color:#fff; cursor:pointer;
+          transition: background 0.2s;
+        }
+        .pin-pad button:active { background:rgba(255,255,255,0.2); }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+                margin: 20px 16px;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 16px;
+            }
+            
+            .nav-main {
+                padding: 10px 16px;
+            }
+            
+            .cv-details {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            form {
+                flex-direction: column;
+            }
+            
+            button[type="submit"] {
+                padding: 14px;
+                justify-content: center;
+            }
+            
+            .cv-card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .score-container {
+                text-align: left;
+                width: 100%;
+            }
+            
+            .progress-container {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+  <!-- Overlay PIN -->
+  <div id="overlay" style="display:none;">
+    <div class="pin-dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+    <div class="pin-pad">
+      <button onclick="press('1')">1</button>
+      <button onclick="press('2')">2</button>
+      <button onclick="press('3')">3</button>
+      <button onclick="press('4')">4</button>
+      <button onclick="press('5')">5</button>
+      <button onclick="press('6')">6</button>
+      <button onclick="press('7')">7</button>
+      <button onclick="press('8')">8</button>
+      <button onclick="press('9')">9</button>
+      <button onclick="del()">⌫</button>
+      <button onclick="press('0')">0</button>
+      <button onclick="enter()">✓</button>
+    </div>
+  </div>
+  <header>
+    <div class="logo">
+        <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
+        <span class="brand">TalentMatchers</span>
+    </div>
+  </header>
+  
+  <nav class="nav-main">
+    <a href="/" class="nav-link active"><i class="fas fa-search"></i> Recherche</a>
+    <a href="/likes" class="nav-link"><i class="fas fa-heart"></i> Favoris</a>
+    <button id="update-btn" onclick="updateCVs()" style="padding: 8px 16px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-left: auto;">
+      🔄 Mettre à jour les CVs
+    </button>
+    <button id="reset-btn" onclick="resetDatabase()" style="padding: 8px 16px; background-color: #dc3545; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-left: 8px;">
+      🗑️ Reset Database
+    </button>
+  </nav>
+
+  <div class="container">
+    <h1>Recherche de CV</h1>
+
+    <div class="search-box">
+      <form method="post" id="search-form">
+        <input type="text" name="prompt" placeholder="Ex: développeur sur Paris, spécialiste marketing digital..." value="{{ prompt or '' }}" required>
+        <button type="submit" id="search-button">
+          <i class="fas fa-search"></i>
+          Rechercher
+        </button>
+      </form>
+    </div>
+    
+    <!-- Zone de chargement -->
+    <div id="loading-container" style="display: none;">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+      <p class="loading-text">Recherche en cours...</p>
+      <p class="loading-subtext">Analyse des profils correspondants</p>
+    </div>
+
+    {% if results %}
+      <h2 class="results-title">
+        <i class="fas fa-check-circle" style="color: var(--secondary);"></i>
+        Résultats triés par pertinence
+        <span class="results-count">{{ results|length }}</span>
+      </h2>
+
+      {% for cv in results %}
+      <div class="cv-card">
+        <div class="cv-card-header">
+          <div class="cv-name">
+            <a href="{{ url_for('show_cv_detail', cv_id=cv._id) }}" style="text-decoration:none; color:var(--dark-text);">
+              {{ cv.nom }}
+            </a>
+          </div>
+          <div class="score-container">
+            <span class="score-label">Score de pertinence</span>
+            <span class="score-value">{{ cv.score }} / 100</span>
+            <div class="progress-container">
+              <div class="progress-bar" style="width: {{ cv.score }}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cv-details">
+          <div class="cv-field">
+            <span class="cv-field-label">Secteur</span>
+            <div class="cv-field-value">{{ cv.secteur }}</div>
+          </div>
+
+          <div class="cv-field">
+            <span class="cv-field-label">Raison de sélection</span>
+            <div class="cv-field-value">{{ cv.raison }}</div>
+          </div>
+
+          <div class="cv-field recent-exp">
+            <span class="cv-field-label">Expérience récente</span>
+            <div class="cv-field-value">{{ cv.experiences[0].titre }} chez {{ cv.experiences[0].entreprise }}</div>
+          </div>
+        </div>
+
+        <a href="/toggle_like/{{ cv._id }}" class="like-btn">
+          {% if cv.liked %}
+            <i class="fas fa-heart"></i> Retirer des favoris
+          {% else %}
+            <i class="far fa-heart"></i> Ajouter aux favoris
+          {% endif %}
+        </a>
+      </div>
+      {% endfor %}
+    {% elif request.method == 'POST' %}
+      <div class="no-results">
+        <i class="fas fa-search" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
+        <p>Aucun résultat ne correspond à votre recherche.</p>
+        <p>Essayez avec d'autres termes ou élargissez vos critères.</p>
+      </div>
+    {% endif %}
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchForm = document.getElementById('search-form');
+      const searchButton = document.getElementById('search-button');
+      const loadingContainer = document.getElementById('loading-container');
+      
+      if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+          // Afficher la zone de chargement
+          loadingContainer.style.display = 'block';
+          
+          // Désactiver le bouton de recherche
+          searchButton.disabled = true;
+          searchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recherche...';
+          
+          // Laisser le formulaire se soumettre normalement
+        });
+      }
+    });
+
+    async function updateCVs() {
+      const updateBtn = document.getElementById('update-btn');
+      const originalText = updateBtn.innerHTML;
+      
+      // Désactiver le bouton et montrer le chargement
+      updateBtn.disabled = true;
+      updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mise à jour...';
+      
+      try {
+        const response = await fetch('/update-cvs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          updateBtn.innerHTML = '✅ Lancée !';
+          alert('Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes pour voir les nouveaux CVs.');
+          
+          // Réactiver le bouton après 3 secondes
+          setTimeout(() => {
+            updateBtn.disabled = false;
+            updateBtn.innerHTML = originalText;
+          }, 3000);
+        } else {
+          updateBtn.innerHTML = '❌ Erreur';
+          alert('Erreur: ' + result.message);
+          
+          setTimeout(() => {
+            updateBtn.disabled = false;
+            updateBtn.innerHTML = originalText;
+          }, 3000);
+        }
+      } catch (error) {
+        updateBtn.innerHTML = '❌ Erreur';
+        alert('Erreur de connexion: ' + error.message);
+        
+        setTimeout(() => {
+          updateBtn.disabled = false;
+          updateBtn.innerHTML = originalText;
+        }, 3000);
+      }
+    }
+
+    async function resetDatabase() {
+      const resetBtn = document.getElementById('reset-btn');
+      const originalText = resetBtn.innerHTML;
+      
+      // Désactiver le bouton et montrer le chargement
+      resetBtn.disabled = true;
+      resetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reset...';
+      
+      try {
+        const response = await fetch('/reset-database', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          resetBtn.innerHTML = '✅ Lancé !';
+          alert('Base de données réinitialisée avec succès. Rechargez la page pour voir les nouveaux CVs.');
+          
+          // Réactiver le bouton après 3 secondes
+          setTimeout(() => {
+            resetBtn.disabled = false;
+            resetBtn.innerHTML = originalText;
+          }, 3000);
+        } else {
+          resetBtn.innerHTML = '❌ Erreur';
+          alert('Erreur lors de la réinitialisation de la base de données: ' + result.message);
+          
+          setTimeout(() => {
+            resetBtn.disabled = false;
+            resetBtn.innerHTML = originalText;
+          }, 3000);
+        }
+      } catch (error) {
+        resetBtn.innerHTML = '❌ Erreur';
+        alert('Erreur de connexion lors de la réinitialisation de la base de données: ' + error.message);
+        
+        setTimeout(() => {
+          resetBtn.disabled = false;
+          resetBtn.innerHTML = originalText;
+        }, 3000);
+      }
+    }
+
+    // --- PIN Overlay JS ---
+    const SECRET = '2013';
+    let pin = '';
+    const overlay = document.getElementById('overlay');
+    function updateDots() {
+      document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('filled', i < pin.length));
+    }
+    function press(d) {
+      if (pin.length < 4) {
+        pin += d;
+        updateDots();
+      }
+    }
+    function del() {
+      pin = pin.slice(0, -1);
+      updateDots();
+    }
+    function enter() {
+      if (pin === SECRET) {
+        localStorage.setItem('pin_ok', '1');
+        overlay.style.display = 'none';
+      } else {
+        pin = '';
+        updateDots();
+      }
+    }
+    function showPinIfNeeded() {
+      if (!localStorage.getItem('pin_ok')) {
+        overlay.style.display = 'flex';
+        updateDots();
+      }
+    }
+    document.addEventListener('DOMContentLoaded', showPinIfNeeded);
+  </script>
+</body>
+</html>
