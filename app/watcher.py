@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import random
 from pymongo import MongoClient
 from config import DB_NAME, COLLECTION_NAME
 
@@ -92,7 +93,9 @@ def run_watch(batch_size=3, max_time_minutes=8):
 
         # Filtrer les PDFs non traités
         pdfs_to_process = [pdf for pdf in pdfs if pdf["id"] not in seen]
-        logger.info(f"🔄 {len(pdfs_to_process)} PDFs à traiter sur {len(pdfs)} total")
+        # Randomiser l'ordre de traitement pour éviter de retomber toujours sur les mêmes PDFs problématiques
+        random.shuffle(pdfs_to_process)
+        logger.info(f"🔄 {len(pdfs_to_process)} PDFs à traiter sur {len(pdfs)} total (ordre aléatoire)")
 
         if not pdfs_to_process:
             logger.info("✅ Tous les PDFs sont déjà traités")
