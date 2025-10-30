@@ -325,6 +325,39 @@
           transition: background 0.2s;
         }
         .pin-pad button:active { background:rgba(255,255,255,0.2); }
+
+        /* Generic spinner */
+        .spinner {
+          width: 28px; height: 28px;
+          border: 3px solid #e5e7eb; border-top-color: var(--spinner-color);
+          border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Update overlay */
+        #update-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+          display: none; align-items: center; justify-content: center; z-index: 9998;
+        }
+        .update-box {
+          background: #fff; border-radius: 12px; padding: 24px 28px; min-width: 280px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          display: flex; flex-direction: column; align-items: center; gap: 14px;
+        }
+        .progress-indeterminate {
+          width: 100%; height: 8px; background: #eef2f7; border-radius: 999px; overflow: hidden;
+        }
+        .progress-indeterminate::before {
+          content: ""; display: block; height: 100%; width: 40%;
+          background: linear-gradient(90deg, var(--secondary), var(--primary));
+          animation: indeterminate 1.4s infinite;
+        }
+        @keyframes indeterminate {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(50%); }
+          100% { transform: translateX(200%); }
+        }
         
         @media (max-width: 768px) {
             .container {
@@ -399,7 +432,7 @@
   </div>
   <header>
     <div class="logo">
-        <img src="{{ url_for('static', filename='img/9ghfmil2.png') }}" alt="Logo" class="logo-img">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="TalentMatchers" class="logo-img">
         <span class="brand">TalentMatchers</span>
     </div>
   </header>
@@ -409,9 +442,6 @@
     <a href="/likes" class="nav-link"><i class="fas fa-heart"></i> Favoris</a>
     <button id="update-btn" onclick="updateCVs()" style="padding: 8px 16px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-left: auto;">
       🔄 Mettre à jour les CVs
-    </button>
-    <button id="reset-btn" onclick="resetDatabase()" style="padding: 8px 16px; background-color: #dc3545; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-left: 8px;">
-      🗑️ Reset Database
     </button>
   </nav>
 
@@ -496,6 +526,16 @@
     {% endif %}
   </div>
   
+  <!-- Update overlay -->
+  <div id="update-overlay">
+    <div class="update-box">
+      <div class="spinner"></div>
+      <div style="font-weight:700; color:#374151;">Mise à jour des CVs en cours...</div>
+      <div class="progress-indeterminate"></div>
+      <div style="font-size:12px; color:#6b7280;">Vous pouvez continuer à utiliser l'application</div>
+    </div>
+  </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const searchForm = document.getElementById('search-form');
@@ -519,10 +559,12 @@
     async function updateCVs() {
       const updateBtn = document.getElementById('update-btn');
       const originalText = updateBtn.innerHTML;
+      const overlayUpdate = document.getElementById('update-overlay');
       
       // Désactiver le bouton et montrer le chargement
       updateBtn.disabled = true;
       updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mise à jour...';
+      if (overlayUpdate) overlayUpdate.style.display = 'flex';
       
       try {
         const response = await fetch('/update-cvs', {
@@ -536,7 +578,8 @@
         
         if (response.ok) {
           updateBtn.innerHTML = '✅ Lancée !';
-          alert('Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes pour voir les nouveaux CVs.');
+          // Petite attente pour laisser l'utilisateur voir l'overlay
+          setTimeout(() => { if (overlayUpdate) overlayUpdate.style.display = 'none'; }, 1200);
           
           // Réactiver le bouton après 3 secondes
           setTimeout(() => {
@@ -545,7 +588,7 @@
           }, 3000);
         } else {
           updateBtn.innerHTML = '❌ Erreur';
-          alert('Erreur: ' + result.message);
+          if (overlayUpdate) overlayUpdate.style.display = 'none';
           
           setTimeout(() => {
             updateBtn.disabled = false;
@@ -554,58 +597,11 @@
         }
       } catch (error) {
         updateBtn.innerHTML = '❌ Erreur';
-        alert('Erreur de connexion: ' + error.message);
+        if (overlayUpdate) overlayUpdate.style.display = 'none';
         
         setTimeout(() => {
           updateBtn.disabled = false;
           updateBtn.innerHTML = originalText;
-        }, 3000);
-      }
-    }
-
-    async function resetDatabase() {
-      const resetBtn = document.getElementById('reset-btn');
-      const originalText = resetBtn.innerHTML;
-      
-      // Désactiver le bouton et montrer le chargement
-      resetBtn.disabled = true;
-      resetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reset...';
-      
-      try {
-        const response = await fetch('/reset-database', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-          resetBtn.innerHTML = '✅ Lancé !';
-          alert('Base de données réinitialisée avec succès. Rechargez la page pour voir les nouveaux CVs.');
-          
-          // Réactiver le bouton après 3 secondes
-          setTimeout(() => {
-            resetBtn.disabled = false;
-            resetBtn.innerHTML = originalText;
-          }, 3000);
-        } else {
-          resetBtn.innerHTML = '❌ Erreur';
-          alert('Erreur lors de la réinitialisation de la base de données: ' + result.message);
-          
-          setTimeout(() => {
-            resetBtn.disabled = false;
-            resetBtn.innerHTML = originalText;
-          }, 3000);
-        }
-      } catch (error) {
-        resetBtn.innerHTML = '❌ Erreur';
-        alert('Erreur de connexion lors de la réinitialisation de la base de données: ' + error.message);
-        
-        setTimeout(() => {
-          resetBtn.disabled = false;
-          resetBtn.innerHTML = originalText;
         }, 3000);
       }
     }
