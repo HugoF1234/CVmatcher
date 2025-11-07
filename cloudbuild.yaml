@@ -1,15 +1,9 @@
-    # cloudbuild.yaml (version finale, avec l'option de logging)
     steps:
-      # Étape 1: Construire l'image Docker
     - name: 'gcr.io/cloud-builders/docker'
       args: ['build', '-t', 'gcr.io/$PROJECT_ID/cvmatcher-image:$COMMIT_SHA', '.']
 
-    # Étape 2: Pousser l'image vers le registre
     images:
     - 'gcr.io/$PROJECT_ID/cvmatcher-image:$COMMIT_SHA'
 
-    # Options de la compilation
     options:
-      # C'est cette ligne qui va résoudre le problème de logging une bonne fois pour toutes.
-      # On dit à Cloud Build d'utiliser sa propre logique de création de buckets régionaux.
       defaultLogsBucketBehavior: 'REGIONAL_USER_OWNED_BUCKET'

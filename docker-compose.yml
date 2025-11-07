@@ -8,7 +8,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8080"  # Host:Container
+      - "8000:8080"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').getcode()==200 else 1)"]
       interval: 30s
@@ -23,12 +23,8 @@ services:
       - app
     ports:
       - "80:80"
-      # Uncomment below after you set up TLS certificates and adjust nginx config
-      # - "443:443"
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # - ./deploy/nginx/certs:/etc/letsencrypt:ro        # if using certbot/webroot
-      # - ./deploy/nginx/dhparam.pem:/etc/nginx/dhparam.pem:ro
 
 networks:
   default:

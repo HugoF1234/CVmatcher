@@ -1,6 +1,5 @@
 import os
 
-# === CONFIGURATION CENTRALISÉE ===
 MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "CVExtraction"
 COLLECTION_NAME = "CVExtractionCollection"
@@ -12,7 +11,6 @@ GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
 TOP_K = 5
 SECRET_KEY = os.environ.get("SECRET_KEY", "change_me_for_prod")
 
-# Créer le dossier faiss_index s'il n'existe pas
 os.makedirs("faiss_index", exist_ok=True)
 
 def get_mongo_client():
@@ -29,7 +27,6 @@ def get_mongo_client():
     try:
         logger.info("🔄 Connexion à MongoDB Atlas avec ServerApi...")
         
-        # Configuration avec ServerApi comme dans votre test réussi
         client = MongoClient(
             MONGO_URI, 
             server_api=ServerApi('1'),
@@ -38,7 +35,6 @@ def get_mongo_client():
             connectTimeoutMS=20000
         )
         
-        # Test de connexion
         client.admin.command('ping')
         logger.info("✅ MongoDB Atlas connecté avec succès")
         return client

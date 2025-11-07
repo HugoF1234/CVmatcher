@@ -12,11 +12,9 @@ import threading
 from config import *
 from app import app
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-# Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# === INITIALISATION GLOBALE ===
 index = None
 id_mapping = []
 client = None
@@ -51,7 +49,6 @@ def init_services():
     """Initialise les services (MongoDB, FAISS, Gemini)"""
     global index, id_mapping, client, collection, gemini_model
     
-    # Init MongoDB
     try:
         from config import get_mongo_client
         client = get_mongo_client()
@@ -65,7 +62,6 @@ def init_services():
         client = None
         collection = None
     
-    # Init FAISS depuis MongoDB
     try:
         from app.utils.vectorize import load_faiss_from_mongodb
         index, id_mapping = load_faiss_from_mongodb()
@@ -76,7 +72,6 @@ def init_services():
     except Exception as e:
         logger.error(f"⚠️ Erreur chargement FAISS: {e}")
     
-    # Init Gemini
     try:
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
@@ -87,7 +82,6 @@ def init_services():
     except Exception as e:
         logger.error(f"❌ Erreur Gemini: {e}")
 
-# Initialiser au chargement du module
 init_services()
 
 @app.route("/test-drive")
@@ -99,18 +93,16 @@ def test_drive():
         
         result = {"status": "testing"}
         
-        # Test de connexion
         if test_drive_connection():
             result["connection"] = "success"
             
-            # Test de listage des PDFs
             try:
                 service = connect_to_drive()
                 folder_id = GOOGLE_DRIVE_FOLDER_ID
                 pdfs = list_pdfs(service, folder_id)
                 
                 result["pdfs_found"] = len(pdfs)
-                result["pdf_names"] = [pdf['name'] for pdf in pdfs[:5]]  # Première 5
+                result["pdf_names"] = [pdf['name'] for pdf in pdfs[:5]]
                 
             except Exception as e:
                 result["pdf_error"] = str(e)
@@ -129,7 +121,6 @@ def debug_info():
     try:
         debug_data = {}
         
-        # Test MongoDB - CORRECTION: utiliser collection is not None
         if collection is not None:
             cv_count = collection.count_documents({})
             collections = collection.database.list_collection_names()
@@ -139,7 +130,6 @@ def debug_info():
                 "collections": collections
             }
             
-            # Vérifier s'il y a des CVs
             if cv_count > 0:
                 sample_cv = collection.find_one({})
                 debug_data["sample_cv"] = {
@@ -150,7 +140,6 @@ def debug_info():
         else:
             debug_data["mongodb"] = {"connected": False}
         
-        # Test FAISS - CORRECTION: utiliser index is not None
         if index is not None:
             debug_data["faiss"] = {
                 "available": True,
@@ -160,7 +149,6 @@ def debug_info():
         else:
             debug_data["faiss"] = {"available": False}
             
-            # Vérifier s'il y a un index FAISS stocké en base
             if collection is not None:
                 faiss_collection = collection.database["faiss_index"]
                 faiss_doc = faiss_collection.find_one({"_id": "faiss_data"})
@@ -168,7 +156,6 @@ def debug_info():
                 if faiss_doc:
                     debug_data["faiss"]["stored_count"] = faiss_doc.get("vector_count", 0)
         
-        # Test Google Drive credentials
         creds_exist = os.path.exists('credentials/credentials.json')
         token_exist = os.path.exists('credentials/token.json')
         debug_data["google_drive"] = {
@@ -182,7 +169,6 @@ def debug_info():
         logger.error(f"❌ Erreur debug: {e}")
         return jsonify({"error": str(e)}), 500
         
-# Remplacer la partie recherche dans routes.py
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -205,7 +191,6 @@ def home():
 
             logger.info(f"🔍 Recherche: '{query}'")
             
-            # Recherche vectorielle avec timeout
             search_results = []
             try:
                 from app.utils.vectorize import search_similar_cvs
@@ -224,7 +209,6 @@ def home():
                 return render_template("index.html", results=[], 
                                      error="Aucun profil trouvé correspondant à votre recherche.")
 
-            # Récupération des CVs depuis MongoDB
             cv_list = []
             for result in search_results:
                 try:
@@ -241,12 +225,10 @@ def home():
                 return render_template("index.html", results=[], 
                                      error="Erreur lors de la récupération des profils.")
 
-            # Reranking avec Gemini (avec timeout plus court)
             if gemini_model is not None:
                 try:
                     logger.info(f"🤖 Reranking Gemini pour {len(cv_list)} CVs")
                     
-                    # 20 secondes max pour Gemini
                     rerank_prompt = (
                         "Tu es un assistant RH expert.\n"
                         f"Requête utilisateur : \"{query}\"\n\n"
@@ -264,10 +246,9 @@ def home():
                         
                         rerank_prompt += f"\n--- Profil {i} : {nom} ---\n"
                         rerank_prompt += f"Secteur: {secteur}\n"
-                        rerank_prompt += f"Compétences: {', '.join(competences[:8])}\n"  # Réduire pour éviter timeout
-                        rerank_prompt += f"Bio: {biographie[:300]}...\n"  # Réduire la bio
+                        rerank_prompt += f"Compétences: {', '.join(competences[:8])}\n"
+                        rerank_prompt += f"Bio: {biographie[:300]}...\n"
                         
-                        # Ajouter 1 expérience récente seulement
                         experiences = cv.get("experiences", [])
                         if experiences:
                             exp = experiences[0]
@@ -277,7 +258,6 @@ def home():
 
                     text = run_with_timeout(lambda: gemini_model.generate_content(rerank_prompt).text.strip(), 20)
 
-                    # Nettoyage du JSON
                     if text.startswith("```json"):
                         text = text[7:-3].strip()
                     elif text.startswith("```"):
@@ -286,9 +266,7 @@ def home():
                     reranked = json.loads(text)
                     logger.info(f"✅ Gemini reranking réussi: {len(reranked)} profils")
 
-                    # Construction des résultats finaux
                     for r in reranked:
-                        # Chercher le CV correspondant
                         matching_cv = None
                         nom_recherche = r.get('nom', '').lower().strip()
 
@@ -306,7 +284,6 @@ def home():
                                 
                 except TimeoutError:
                     logger.warning("⏰ Timeout Gemini reranking, utilisation scores FAISS")
-                    # Fallback sans Gemini
                     for cv in cv_list[:3]:
                         faiss_score = cv.get("_faiss_score", 0.5)
                         cv["score"] = int(faiss_score * 100) if faiss_score <= 1 else int(faiss_score)
@@ -316,7 +293,6 @@ def home():
                         
                 except Exception as e:
                     logger.error(f"⚠️ Erreur Gemini reranking: {e}")
-                    # Fallback sans Gemini
                     for cv in cv_list[:3]:
                         faiss_score = cv.get("_faiss_score", 0.5)
                         cv["score"] = int(faiss_score * 100) if faiss_score <= 1 else int(faiss_score)
@@ -324,7 +300,6 @@ def home():
                         cv["liked"] = str(cv["_id"]) in session["likes"]
                         results.append(cv)
             else:
-                # Pas de Gemini - utiliser scores FAISS
                 logger.info("📊 Utilisation des scores FAISS (pas de Gemini)")
                 for cv in cv_list[:3]:
                     faiss_score = cv.get("_faiss_score", 0.5)
@@ -334,7 +309,6 @@ def home():
                     results.append(cv)
 
             logger.info(f"🎯 Recherche terminée: {len(results)} résultats pour '{query}'")
-            # Sauvegarde la recherche et les résultats dans la session
             session["prompt"] = query
             session["last_results"] = [str(cv["_id"]) for cv in cv_list]
             prompt = query
@@ -345,7 +319,6 @@ def home():
                                  error="Erreur lors de la recherche. Veuillez réessayer.")
 
     else:
-        # Si on revient sur la page d'accueil, pré-remplir avec la dernière recherche
         if "prompt" in session and "last_results" in session:
             prompt = session["prompt"]
             results = []
@@ -364,11 +337,10 @@ def run_update_background():
 
         client = get_mongo_client()
         logger.info("🔄 Début de la mise à jour des CVs en arrière-plan")
-        success = run_watch()  # Ajoute les nouveaux CVs via enrich_db
+        success = run_watch()
 
         if success:
             global index, id_mapping
-            # Utilise le même client pour toutes les opérations FAISS
             sync_faiss_with_db(client=client)
             index, id_mapping = load_faiss_from_mongodb(client=client)
             logger.info("🔄 Index FAISS rechargé après mise à jour")
@@ -377,7 +349,6 @@ def run_update_background():
     except Exception as e:
         logger.error(f"❌ Erreur mise à jour CVs en arrière-plan: {e}")
 
-# Ajouter cette route dans app/routes.py
 
 @app.route("/clean-index", methods=["POST"])
 def clean_index():
@@ -387,7 +358,6 @@ def clean_index():
         
         logger.info("🧹 Début nettoyage index FAISS")
         
-        # Nettoyer l'ancien index
         clean_success = clean_faiss_index()
         if not clean_success:
             return jsonify({
@@ -395,12 +365,10 @@ def clean_index():
                 "message": "Erreur lors du nettoyage"
             }), 500
         
-        # Recréer l'index
         logger.info("🔄 Recréation de l'index FAISS")
         create_success = update_faiss_index()
         
         if create_success:
-            # Recharger l'index en mémoire
             global index, id_mapping
             from app.utils.vectorize import load_faiss_from_mongodb
             index, id_mapping = load_faiss_from_mongodb()
@@ -437,7 +405,6 @@ def run_diagnostic():
             "tests": {}
         }
         
-        # Test 1: MongoDB
         try:
             if collection is not None:
                 cv_count = collection.count_documents({})
@@ -464,7 +431,6 @@ def run_diagnostic():
                 "error": str(e)
             }
         
-        # Test 2: SentenceTransformer
         try:
             import os
             from sentence_transformers import SentenceTransformer
@@ -484,7 +450,6 @@ def run_diagnostic():
                 "error": str(e)
             }
         
-        # Test 3: FAISS Index
         try:
             if index is not None and id_mapping:
                 diagnostic_results["tests"]["faiss"] = {
@@ -494,7 +459,6 @@ def run_diagnostic():
                     "index_type": str(type(index))
                 }
             else:
-                # Essayer de charger depuis MongoDB
                 from app.utils.vectorize import load_faiss_from_mongodb
                 test_index, test_mapping = load_faiss_from_mongodb()
                 
@@ -515,7 +479,6 @@ def run_diagnostic():
                 "error": str(e)
             }
         
-        # Test 4: Recherche vectorielle
         try:
             from app.utils.vectorize import search_similar_cvs
             test_results = search_similar_cvs("développeur Python", top_k=3)
@@ -531,10 +494,8 @@ def run_diagnostic():
                 "error": str(e)
             }
         
-        # Test 5: Gemini
         try:
             if gemini_model is not None:
-                # Test simple sans vraiment appeler l'API
                 diagnostic_results["tests"]["gemini"] = {
                     "status": "available",
                     "model_configured": True
@@ -550,7 +511,6 @@ def run_diagnostic():
                 "error": str(e)
             }
         
-        # Calcul du statut global
         passed_tests = sum(1 for test in diagnostic_results["tests"].values() 
                           if test.get("status") in ["success", "available", "loaded_from_db"])
         total_tests = len(diagnostic_results["tests"])
@@ -571,7 +531,6 @@ def run_diagnostic():
             "status": "critical_error"
         }), 500
 
-# Route pour afficher le diagnostic de manière lisible
 @app.route("/diagnostic-ui")
 def diagnostic_ui():
     """Interface web pour le diagnostic"""
@@ -583,11 +542,11 @@ def diagnostic_ui():
         <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
             .test { margin: 20px 0; padding: 15px; border-radius: 8px; }
-            .success { background-color: #d4edda; border-left: 5px solid #28a745; }
-            .error { background-color: #f8d7da; border-left: 5px solid #dc3545; }
-            .warning { background-color: #fff3cd; border-left: 5px solid #ffc107; }
-            pre { background: #f8f9fa; padding: 10px; border-radius: 4px; }
-            button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            .success { background-color:
+            .error { background-color:
+            .warning { background-color:
+            pre { background:
+            button { padding: 10px 20px; background:
         </style>
     </head>
     <body>
@@ -642,21 +601,18 @@ def diagnostic_ui():
 def update_cvs():
     """Lance la mise à jour des CVs de manière asynchrone pour éviter les timeouts"""
     try:
-        # Vérifier que MongoDB est connecté
         if collection is None:
             return jsonify({
                 "status": "error", 
                 "message": "Base de données non connectée"
             }), 503
         
-        # Lancer le processus en arrière-plan
         thread = threading.Thread(target=run_update_background)
         thread.daemon = True
         thread.start()
         
         logger.info("🚀 Mise à jour des CVs lancée en arrière-plan")
         
-        # Retourner immédiatement une réponse JSON valide
         return jsonify({
             "status": "started",
             "message": "Mise à jour des CVs lancée en arrière-plan. Rechargez la page dans quelques minutes."
@@ -676,10 +632,8 @@ def update_status():
         if collection is None:
             return jsonify({"mongodb": False, "faiss": False})
         
-        # Compter les CVs dans la base
         cv_count = collection.count_documents({})
         
-        # Vérifier FAISS
         faiss_available = index is not None and len(id_mapping) > 0
         
         return jsonify({
@@ -770,16 +724,11 @@ import os
 
 @app.route("/download/<nomdupdf>")
 def download_pdf(nomdupdf):
-    # Chemin local temporaire où tu télécharges le PDF
     local_path = f"/tmp/{nomdupdf}"
     if not os.path.exists(local_path):
-        # Télécharger depuis Google Drive si besoin
         from app.utils.drive_utils import connect_to_drive, download_file
         from config import GOOGLE_DRIVE_FOLDER_ID
         service = connect_to_drive()
-        # Il faut retrouver l'ID du fichier sur le Drive à partir du nom
-        # (à adapter selon ta logique)
-        # Supposons que tu as une fonction get_file_id_by_name(service, nomdupdf)
         from app.utils.drive_utils import list_pdfs
         folder_id = GOOGLE_DRIVE_FOLDER_ID
         pdfs = list_pdfs(service, folder_id)
@@ -804,22 +753,18 @@ def reset_database():
         
         logger.info("🗑️ Début du reset de la base de données")
         
-        # Vider la collection principale
         delete_result = collection.delete_many({})
         logger.info(f"🗑️ {delete_result.deleted_count} CVs supprimés de la collection principale")
         
-        # Vider la collection seen_cvs
         db = collection.database
         seen_collection = db["seen_cvs"]
         seen_delete_result = seen_collection.delete_many({})
         logger.info(f"🗑️ {seen_delete_result.deleted_count} entrées supprimées de seen_cvs")
         
-        # Vider l'index FAISS
         faiss_collection = db["faiss_index"]
         faiss_delete_result = faiss_collection.delete_many({})
         logger.info(f"🗑️ {faiss_delete_result.deleted_count} entrées supprimées de faiss_index")
         
-        # Lancer la mise à jour avec le nouveau dossier
         thread = threading.Thread(target=run_update_background)
         thread.daemon = True
         thread.start()

@@ -15,17 +15,14 @@ def connect_to_drive():
     token_json_str = os.environ.get('GOOGLE_TOKEN_JSON')
 
     if token_json_str:
-        # Priorité 1: Charger depuis la variable d'environnement (pour GCP/Render)
         try:
             token_info = json.loads(token_json_str)
             creds = Credentials.from_authorized_user_info(token_info, SCOPES)
             print("📖 Credentials chargés depuis la variable d'environnement GOOGLE_TOKEN_JSON")
         except Exception as e:
             print(f"❌ Erreur de chargement des credentials depuis l'environnement : {e}")
-            # Si l'env var est mal formée, on ne continue pas pour éviter des erreurs ambiguës
             return None
     else:
-        # Priorité 2: Charger depuis le fichier token.json (pour le dev local)
         possible_token_paths = [
             'token.json',
             'credentials/token.json',
@@ -44,7 +41,6 @@ def connect_to_drive():
             except Exception as e:
                 print(f"❌ Erreur lecture token local : {e}")
 
-    # Si on n'a toujours pas de credentials, c'est une erreur.
     if not creds:
         raise Exception(
             "❌ Credentials Google Drive non trouvés. "
@@ -52,7 +48,6 @@ def connect_to_drive():
             "ou que le fichier token.json est présent localement."
         )
 
-    # Vérifier et rafraîchir si nécessaire (commun aux deux méthodes)
     if creds.expired and creds.refresh_token:
         print("🔄 Rafraîchissement du token...")
         try:
@@ -61,7 +56,6 @@ def connect_to_drive():
             print("✅ Token rafraîchi avec succès")
         except Exception as e:
             print(f"❌ Erreur de rafraîchissement du token : {e}")
-            # On ne bloque pas ici, on laisse la suite décider si les creds sont valides
     
     return build('drive', 'v3', credentials=creds)
 
@@ -70,7 +64,6 @@ def test_drive_connection():
     try:
         service = connect_to_drive()
         
-        # Test simple : lister quelques fichiers
         results = service.files().list(pageSize=5, fields="files(id, name)").execute()
         files = results.get('files', [])
         
@@ -96,7 +89,7 @@ def list_pdfs(service, folder_id):
                 spaces='drive',
                 fields='nextPageToken, files(id, name, size)',
                 pageToken=page_token,
-                pageSize=50  # Plus de fichiers par page
+                pageSize=50
             ).execute()
 
             new_files = response.get('files', [])
@@ -125,7 +118,6 @@ def download_file(service, file_id, file_name):
                 status, done = downloader.next_chunk()
                 if status:
                     progress = int(status.progress() * 100)
-                    # Afficher le progrès seulement tous les 25%
                     if progress % 25 == 0:
                         print(f"  📥 {file_name}: {progress}%")
         
@@ -137,7 +129,6 @@ def download_file(service, file_id, file_name):
         return False
 
 if __name__ == '__main__':
-    # Test de connexion
     if test_drive_connection():
         service = connect_to_drive()
         from config import GOOGLE_DRIVE_FOLDER_ID
